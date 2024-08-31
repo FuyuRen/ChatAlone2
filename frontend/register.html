@@ -20,13 +20,14 @@
                     <h2 class="text-2xl font-bold text-gray-800">ChatAlone</h2>
                     <p class="text-sm text-gray-500">纪念逝去的青春</p>
                 </div>
-                <form>
+                <form id="registrationForm">
                     <div class="space-y-4">
                         <div>
                             <label for="username" class="block text-sm font-medium text-gray-700">用户名</label>
                             <input type="text" name="username" id="username" placeholder="请输入用户名"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
-                                required>
+                                pattern="^[\u4e00-\u9fa5a-zA-Z0-9\s_.-@]{2,20}$" required>
+                            <small id="usernameHelp" class="text-red-500 hidden">用户名长度必须在2-20位，且只能包含中文、英文、数字和下划线、减号</small>
                         </div>
                         <div>
                             <label for="email" class="block text-sm font-medium text-gray-700">邮箱</label>
@@ -38,13 +39,15 @@
                             <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
                             <input type="password" name="password" id="password"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
-                                required>
+                                pattern="^[a-zA-Z0-9]{8,20}$" required>
+                            <small id="passwordHelp" class="text-red-500 hidden">密码长度必须在8-20位，且只能包含字母和数字</small>
                         </div>
                         <div>
                             <label for="confirm-password" class="block text-sm font-medium text-gray-700">确认密码</label>
                             <input type="password" name="confirm-password" id="confirm-password"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
                                 required>
+                            <small id="confirmPasswordHelp" class="text-red-500 hidden">两次输入的密码不一致</small>
                         </div>
                     </div>
                     <div class="mt-6">
@@ -60,6 +63,79 @@
             </div>
         </div>
     </div>
+    
+    <script src="popup.js"></script>
+    <script>
+        const form = document.getElementById('registrationForm');
+        const usernameInput = document.getElementById('username');
+        const usernameHelp = document.getElementById('usernameHelp');
+        const passwordInput = document.getElementById('password');
+        const passwordHelp = document.getElementById('passwordHelp');
+        const confirmPasswordInput = document.getElementById('confirm-password');
+        const confirmPasswordHelp = document.getElementById('confirmPasswordHelp');
+
+        const usernamePattern = /^[\u4e00-\u9fa5a-zA-Z0-9_-]{2,20}$/;
+        const passwordPattern = /^[a-zA-Z0-9]{8,20}$/;
+
+        usernameInput.addEventListener('input', () => {
+            if (!usernamePattern.test(usernameInput.value)) {
+                usernameHelp.classList.remove('hidden');
+            } else {
+                usernameHelp.classList.add('hidden');
+            }
+        });
+
+        passwordInput.addEventListener('input', () => {
+            if (!passwordPattern.test(passwordInput.value)) {
+                passwordHelp.classList.remove('hidden');
+            } else {
+                passwordHelp.classList.add('hidden');
+            }
+        });
+
+        confirmPasswordInput.addEventListener('input', () => {
+            if (passwordInput.value !== confirmPasswordInput.value) {
+                confirmPasswordHelp.classList.remove('hidden');
+            } else {
+                confirmPasswordHelp.classList.add('hidden');
+            }
+        });
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            try {
+                if (!usernamePattern.test(usernameInput.value)) {
+                    usernameHelp.classList.remove('hidden');
+                    throw new Error('Invalid username');
+                } else if (!passwordPattern.test(passwordInput.value)) {
+                    passwordHelp.classList.remove('hidden');
+                    throw new Error('Invalid password');
+                } else if (passwordInput.value !== confirmPasswordInput.value) {
+                    confirmPasswordHelp.classList.remove('hidden');
+                    throw new Error('Password mismatch');
+                }
+            }  catch (error) {
+                const myPopup = createUniversalPopup({
+                    title: 'My Popup',
+                    content: `<p>${error.message}</p>`,
+                    onClose: () => {
+                        console.log('Popup closed');
+                    }
+                });
+                myPopup.show();
+                return;
+            }
+
+            // TODO: submit form data
+            console.log('submit:', {
+                username: usernameInput.value,
+                email: form.email.value,
+                password: passwordInput.value,
+                confirmPassword: confirmPasswordInput.value
+            });
+        });
+    </script>
 </body>
 
 </html>

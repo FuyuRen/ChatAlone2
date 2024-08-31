@@ -20,19 +20,21 @@
                     <h2 class="text-2xl font-bold text-gray-800">ChatAlone</h2>
                     <p class="text-sm text-gray-500">纪念逝去的青春</p>
                 </div>
-                <form>
+                <form id="loginForm">
                     <div class="space-y-4">
                         <div>
-                            <label for="email" class="block text-sm font-medium text-gray-700">邮箱或用户名</label>
-                            <input type="email" name="email" id="email" placeholder="m@example.com"
+                            <label for="identifier" class="block text-sm font-medium text-gray-700">邮箱或用户名</label>
+                            <input type="text" name="identifier" id="identifier" placeholder="m@example.com 或 用户名"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
                                 required>
+                            <small id="identifierHelp" class="text-red-500 hidden">请输入正确的邮箱地址或用户名</small>
                         </div>
                         <div>
                             <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
                             <input type="password" name="password" id="password"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
-                                required>
+                                pattern="^[a-zA-Z0-9]{8,20}$" required>
+                            <small id="passwordHelp" class="text-red-500 hidden">密码长度必须在8-20位，且只能包含字母和数字</small>
                         </div>
                     </div>
                     <div class="mt-6">
@@ -43,11 +45,61 @@
                     </div>
                 </form>
                 <p class="text-center text-sm text-gray-500">
-                    没有帐户? <a href="/signup" class="text-blue-500 hover:underline">注册</a>
+                    没有帐户? <a href="/register" class="text-blue-500 hover:underline">注册</a>
                 </p>
             </div>
         </div>
     </div>
+
+    <script src="popup.js"></script>
+    <script>
+        const form = document.getElementById('loginForm');
+        const identifierInput = document.getElementById('identifier');
+        const identifierHelp = document.getElementById('identifierHelp');
+        const passwordInput = document.getElementById('password');
+        const passwordHelp = document.getElementById('passwordHelp');
+
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // 简化的邮箱验证
+        const passwordPattern = /^[a-zA-Z0-9]{8,20}$/;
+
+        identifierInput.addEventListener('input', () => {
+            if (!emailPattern.test(identifierInput.value) && identifierInput.value.length < 2) {
+                identifierHelp.classList.remove('hidden');
+            } else {
+                identifierHelp.classList.add('hidden');
+            }
+        });
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            try {
+                if (!emailPattern.test(identifierInput.value) && identifierInput.value.length < 2) {
+                    identifierHelp.classList.remove('hidden');
+                    throw new Error('Invalid identifier');
+                } else if (!passwordPattern.test(passwordInput.value)) {
+                    passwordHelp.classList.remove('hidden');
+                    throw new Error('Invalid password');
+                }
+            } catch (error) {
+                const myPopup = createUniversalPopup({
+                    title: 'My Popup',
+                    content: `<p>${error.message}</p>`,
+                    onClose: () => {
+                        console.log('Popup closed');
+                    }
+                });
+                myPopup.show();
+                return;
+            }
+
+            // TODO: submit form data
+            console.log('submit:', {
+                identifier: identifierInput.value,
+                password: passwordInput.value,
+            });
+        });
+    </script>
 </body>
 
 </html>
