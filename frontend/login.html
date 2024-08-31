@@ -59,11 +59,13 @@
         const passwordInput = document.getElementById('password');
         const passwordHelp = document.getElementById('passwordHelp');
 
-        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // 简化的邮箱验证
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const usernamePattern = /^[\u4e00-\u9fa5a-zA-Z0-9_-]{2,20}$/;
+
         const passwordPattern = /^[a-zA-Z0-9]{8,20}$/;
 
         identifierInput.addEventListener('input', () => {
-            if (!emailPattern.test(identifierInput.value) && identifierInput.value.length < 2) {
+            if (!emailPattern.test(identifierInput.value) && !usernamePattern.test(identifierInput.value)) {
                 identifierHelp.classList.remove('hidden');
             } else {
                 identifierHelp.classList.add('hidden');
@@ -74,7 +76,7 @@
             event.preventDefault();
 
             try {
-                if (!emailPattern.test(identifierInput.value) && identifierInput.value.length < 2) {
+                if (!emailPattern.test(identifierInput.value) && !usernamePattern.test(identifierInput.value)) {
                     identifierHelp.classList.remove('hidden');
                     throw new Error('Invalid identifier');
                 } else if (!passwordPattern.test(passwordInput.value)) {
