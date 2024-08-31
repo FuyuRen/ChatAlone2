@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatAlone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.2.0/remixicon.css"
+        integrity="sha512-OQDNdI5rpnZ0BRhhJc+btbbtnxaj+LdQFeh0V9/igiEPDiWE2fG+ZsXl0JEH+bjXKPJ3zcXqNyP4/F/NegVdZg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        #message-container {
+            scroll-behavior: smooth;
+            overflow-y: scroll;
+        }
+
+        *::-webkit-scrollbar {
+            width: 8px;
+            /* 设置滚动条宽度 */
+        }
+
+        *::-webkit-scrollbar-track {
+            background: transparent;
+            /* 隐藏滚动条轨道 */
+        }
+
+        *::-webkit-scrollbar-thumb {
+            background-color: rgba(107, 114, 128, 0.5);
+            /* 设置滚动条滑块颜色和透明度 */
+            border-radius: 4px;
+            /* 设置滚动条滑块圆角 */
+        }
+
+        *::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(107, 114, 128, 0.7);
+            /* 设置滚动条滑块悬停时的颜色 */
+        }
+
+        .user-list-item {
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: background-color 0.3s ease;
+        }
+
+        .user-list-item--special {
+            border: 1px solid var(--breathing-color);
+            background: linear-gradient(to right, rgba(var(--breathing-color), 0.3), transparent);
+            animation: breathing-light 2s infinite alternate;
+        }
+
+        @keyframes breathing-light {
+            0% {
+                background-color: rgba(var(--breathing-color), 0.3);
+            }
+
+            100% {
+                background-color: rgba(var(--breathing-color), 0.1);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 font-sans">
+    <div class="container mx-auto px-4 py-8 h-screen flex items-center justify-center">
+        <div class="flex w-full max-w-4xl mx-auto space-x-4">
+            <div class="flex-grow bg-white rounded-lg shadow-md">
+                <div class="flex flex-row items-center justify-between space-y-0 pb-2 px-6 pt-4 border-b">
+                    <div class="flex items-center space-x-4">
+                        <div class="rounded-full bg-gray-200 w-10 h-10 flex items-center justify-center">
+                            <span class="text-xl font-bold text-gray-600">
+                                <i class="ri-chat-1-line"></i>
+                            </span>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-semibold">ChatAlone</h2>
+                            <p class="text-sm text-gray-500" id="online-count">3 在线</p>
+                        </div>
+                    </div>
+
+                    <div class="flex ml-auto">
+                        <button class="text-gray-500 hover:text-gray-600 focus:outline-none">
+                            <i class="ri-settings-3-line text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="h-[400px] pr-4 overflow-y-auto" id="message-container">
+                    <div class="p-6">
+                        <div class="flex mb-4 justify-center">
+                            <div class="bg-gray-200 rounded-lg px-2 py-1 text-[12px] text-gray-500">
+                                <p>你加入了聊天室</p>
+                            </div>
+                        </div>
+                        <div class="flex mb-4">
+                            <div class="bg-gray-100 rounded-lg p-3 max-w-[70%] other-message message-bubble ml-4">
+                                <p class="font-semibold text-sm mb-1">Alice</p>
+                                <p class="text-sm">大家好！最近怎么样？</p>
+                            </div>
+                        </div>
+                        <div class="flex mb-4 justify-end">
+                            <div
+                                class="bg-blue-500 rounded-lg p-3 max-w-[70%] text-white user-message message-bubble mr-2">
+                                <p class="font-semibold text-sm mb-1">Bob</p>
+                                <p class="text-sm">嗨，Alice！我很好，谢谢关心。你呢？</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-6 py-4 border-t">
+                    <form id="message-form" class="flex w-full items-center space-x-2">
+                        <input type="text" id="message-input" placeholder="输入你的消息..."
+                            class="flex-1 border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="submit"
+                            class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md"><i
+                                class="ri-send-plane-fill"></i> 发送</button>
+                    </form>
+                </div>
+            </div>
+            <div class="w-64 bg-white rounded-lg shadow-md flex flex-col">
+                <div class="px-6 pt-4">
+                    <h3 class="text-lg font-semibold">用户列表</h3>
+                </div>
+                <div class="overflow-y-auto flex-grow h-[400px]">
+                    <div class="p-6 space-y-4">
+                        <div id="user-list"> </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        const myName = 'FuyuRen';
+
+        const messageContainer = document.getElementById('message-container');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const userListContainer = document.getElementById('user-list');
+        const onlineCount = document.getElementById('online-count');
+
+        let users = {
+            online: [],
+            offline: []
+        };
+
+        messageForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const message = messageInput.value.trim();
+            if (message) {
+                sendMessage(message);
+                messageInput.value = '';
+            }
+        });
+
+        function sendMessage(message) {
+            // TODO: 发送消息到服务器
+            appendMessage('你', message);
+            messageInput.focus();
+        }
+
+        function appendMessage(user, message) {
+            const alignment = user === '你' ? 'justify-end' : 'justify-start';
+            const bgColorClass = user === '你' ? 'bg-blue-500 text-white user-message' : 'bg-gray-100 other-message';
+            const messageBubbleStyle = user === '你' ? 'mr-8' : 'ml-10';
+
+            const isSingleEmoji = /^\p{Extended_Pictographic}$/u.test(message.trim());
+
+            let messageContent = `<p class="font-semibold text-sm mb-1">`;
+
+            messageContent += isSingleEmoji
+                ? `${user}</p><p class="text-6xl">${message}</p>`
+                : `${user}</p><p class="text-sm">${message}</p>`;
+
+            const messageElement = `
+                <div class="flex mb-4 ${alignment}">
+                <div class="${bgColorClass} rounded-lg p-3 max-w-[70%] message-bubble ${messageBubbleStyle}"> 
+                    ${messageContent} 
+                </div>
+                </div>
+            `;
+            messageContainer.innerHTML += messageElement;
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            messageContainer.scrollTo({
+                top: messageContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        function renderUserList() {
+            userListContainer.innerHTML = '';
+
+            let onlineListHTML = '<h4 class="text-sm font-semibold mb-2">在线</h4>';
+            users.online.forEach(user => {
+                const isSpecialUser = user.color || false;
+                const specialClass = isSpecialUser ? 'user-list-item--special' : '';
+
+                onlineListHTML += `
+                    <div class="flex items-center mb-2 user-list-item ${specialClass}" style="${isSpecialUser ? `--breathing-color: ${user.color};` : ''}"> 
+                        <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                        <div>
+                            <p class="font-medium">${user.name}</p>
+                            ${user.status ? `<p class="text-sm text-gray-500">${user.status}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            userListContainer.innerHTML += onlineListHTML;
+
+            let offlineListHTML = '<h4 class="text-sm font-semibold mb-2">离线</h4>';
+            users.offline.forEach(user => {
+                offlineListHTML += `
+                    <div class="flex items-center mb-2">
+                        <span class="w-2 h-2 bg-gray-300 rounded-full mr-2"></span>
+                        <div>
+                            <p class="font-medium">${user.name}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            userListContainer.innerHTML += offlineListHTML;
+
+            onlineCount.textContent = `${users.online.length} 在线`;
+        }
+
+        function appendJoinLeaveMessage(user, isJoining) {
+            const message = isJoining ? `${user} 进入了聊天室` : `${user} 离开了聊天室`;
+            const messageElement = `
+                <div class="flex mb-4 justify-center">
+                    <div class="bg-gray-200 rounded-lg px-2 py-1 text-[12px] text-gray-500">
+                        <p>${message}</p>
+                    </div>
+                </div>
+            `;
+            messageContainer.innerHTML += messageElement;
+            scrollToBottom();
+        }
+
+        window.onload = () => {
+            appendJoinLeaveMessage('阿姨', true);
+            appendMessage('阿姨', '😀');
+        };
+
+
+
+        users = {
+            online: [
+                { name: 'FuyuRen', status: '正在玩 jb', color: '255, 234, 34'},
+                { name: 'Alice', status: '正在玩 Minecraft'},
+                { name: 'Bob', status: '正在玩 Fortnite' },
+                { name: 'Charlie', status: '' }
+            ],
+            offline: [
+                { name: 'David' },
+                { name: 'Eve' },
+                { name: 'Fuck' },
+                { name: 'Google' },
+                { name: 'Hello World!' }
+            ]
+        };
+        renderUserList(); 
+    </script>
+</body>
+
+</html>

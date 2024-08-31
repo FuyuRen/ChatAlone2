@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatAlone - 登录</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.2.0/remixicon.css"
+        integrity="sha512-OQDNdI5rpnZ0BRhhJc+btbbtnxaj+LdQFeh0V9/igiEPDiWE2fG+ZsXl0JEH+bjXKPJ3zcXqNyP4/F/NegVdZg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body>
+    <div class="flex items-center justify-center min-h-screen bg-gray-100">
+        <div class="w-full max-w-md bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="px-6 py-8 space-y-6">
+                <div class="text-center space-y-2">
+                    <i class="ri-chat-smile-line text-[70px]"></i>
+                    <h2 class="text-2xl font-bold text-gray-800">ChatAlone</h2>
+                    <p class="text-sm text-gray-500">纪念逝去的青春</p>
+                </div>
+                <form>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700">邮箱或用户名</label>
+                            <input type="email" name="email" id="email" placeholder="m@example.com"
+                                class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
+                                required>
+                        </div>
+                        <div>
+                            <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
+                            <input type="password" name="password" id="password"
+                                class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
+                                required>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <button type="submit"
+                            class="w-full px-4 py-2 text-white font-medium bg-gray-900 rounded-md hover:bg-gray-800 focus:outline-none focus:bg-gray-800 transition duration-300">
+                            登录
+                        </button>
+                    </div>
+                </form>
+                <p class="text-center text-sm text-gray-500">
+                    没有帐户? <a href="/signup" class="text-blue-500 hover:underline">注册</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

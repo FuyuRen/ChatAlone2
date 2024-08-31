@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatAlone - 设置</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.2.0/remixicon.css"
+        integrity="sha512-OQDNdI5rpnZ0BRhhJc+btbbtnxaj+LdQFeh0V9/igiEPDiWE2fG+ZsXl0JEH+bjXKPJ3zcXqNyP4/F/NegVdZg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body class="bg-gray-100">
+    <div id="root" class="flex items-center justify-center min-h-screen">
+    </div>
+    <script>
+        const root = document.getElementById('root');
+        let username = "FuyuRen";
+        let userStatus = ""; // 用户动态
+        let isEditingUsername = false;
+        let isEditingStatus = false;
+
+        function toggleUsernameEdit() {
+            isEditingUsername = !isEditingUsername;
+            render();
+        }
+
+        function toggleStatusEdit() {
+            isEditingStatus = !isEditingStatus;
+            render();
+        }
+
+        function handleUsernameChange(e) {
+            username = e.target.value;
+        }
+
+        function handleStatusChange(e) {
+            userStatus = e.target.value;
+        }
+
+        function saveUsername() {
+            isEditingUsername = false;
+            render();
+            console.log("Username updated to:", username);
+        }
+
+        function saveStatus() {
+            isEditingStatus = false;
+            render();
+            console.log("User status updated to:", userStatus);
+        }
+
+        function handleLogout() {
+            console.log("User logged out");
+        }
+
+        function handleDeleteAccount() {
+            console.log("Account deleted");
+        }
+
+        function showDeleteConfirmation() {
+            if (confirm("Are you absolutely sure?\nThis action cannot be undone. This will permanently delete your account.")) {
+                handleDeleteAccount();
+            }
+        }
+
+        function render() {
+            root.innerHTML = `
+                <div class="w-full max-w-md bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-2xl text-center font-bold mb-6">设置</h2>
+                    <div class="mb-4">
+                        <label for="username" class="block text-sm font-medium text-gray-700 mb-2">用户名</label>
+                        ${isEditingUsername ? `
+                            <div class="flex space-x-2">
+                                <input type="text" id="username" value="${username}" oninput="handleUsernameChange(event)" class="flex-grow border border-gray-300 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <button onclick="saveUsername()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">保存</button>
+                                <button onclick="toggleUsernameEdit()" class="border border-gray-300 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-200">取消</button>
+                            </div>
+                        ` : `
+                            <div class="flex items-center space-x-2">
+                                <span class="flex-grow">${username}</span>
+                                <button onclick="toggleUsernameEdit()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-200">修改</button>
+                            </div>
+                        `}
+                    </div>
+                    <div class="mb-4">
+                        <label for="userStatus" class="block text-sm font-medium text-gray-700 mb-2">用户动态</label>
+                        ${isEditingStatus ? `
+                            <div class="flex space-x-2">
+                                <input type="text" id="userStatus" value="${userStatus}" oninput="handleStatusChange(event)" class="flex-grow border border-gray-300 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <button onclick="saveStatus()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">保存</button>
+                                <button onclick="toggleStatusEdit()" class="border border-gray-300 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-200">取消</button>
+                            </div>
+                        ` : `
+                            <div class="flex items-center space-x-2">
+                                <span class="flex-grow">${userStatus ? userStatus : "未设置"}</span>
+                                <button onclick="toggleStatusEdit()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-200">修改</button>
+                            </div>
+                        `}
+                    </div>
+                    <button onclick="handleLogout()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-gray-200">登出</button>
+                    <button onclick="showDeleteConfirmation()" class="w-full bg-white text-red-500 border border-red-500 hover:bg-red-100 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">删除账户</button>
+                </div>
+            `;
+        }
+
+        render();
+    </script>
+</body>
+
+</html>
