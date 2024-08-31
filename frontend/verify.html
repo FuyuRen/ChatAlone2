@@ -43,7 +43,11 @@
                     inputs[index + 1].focus();
                     currentIndex++;
                 }
+            } else {
+                inputs[index].value = '';
+                code[index] = '';
             }
+            checkInput();
         }
 
         function handleKeyDown(index, e) {
@@ -51,12 +55,28 @@
                 inputs[index - 1].focus();
                 currentIndex--;
             }
+            checkInput();
         }
 
         function handleSubmit(e) {
             e.preventDefault();
             const verificationCode = code.join('');
+
+            // TODO: Verify the code with the backend
             console.log('Verification attempted with code:', verificationCode);
+        }
+
+        function checkInput() {
+            const submitButton = document.querySelector('#verificationForm button[type="submit"]');
+            if (code.join('').length === 6) {
+                submitButton.disabled = false;
+                submitButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                submitButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+            } else {
+                submitButton.disabled = true;
+                submitButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+                submitButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+            }
         }
 
         root.innerHTML = `
@@ -80,7 +100,8 @@
                                 </div>
                             `).join('')}
                         </div>
-                        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md w-full transition duration-300">
+                        <p class="text-red-500 text-sm text-center hidden">验证码错误，请重试。</p>
+                        <button type="submit" class="bg-gray-400 cursor-not-allowed text-white px-4 py-2 rounded-md w-full transition duration-300" disabled>
                             确认
                         </button>
                     </form>
@@ -102,15 +123,6 @@
         });
 
         form.addEventListener('submit', handleSubmit);
-    </script>
-    <script src="popup.js"></script>
-    <script>
-        const myPopup = createUniversalPopup({
-            title: 'My Popup',
-            content: '<p>This is my popup content.</p>',
-            onClose: () => { console.log('Popup closed!'); }
-        });
-        // myPopup.show();
     </script>
 </body>
 
