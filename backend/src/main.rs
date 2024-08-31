@@ -1,7 +1,10 @@
 mod email;
-mod server;
+mod route;
 mod room;
+mod sql;
+mod jwt;
 
+use std::str::FromStr;
 use tokio::{
     fs::File,
     io::{self, AsyncReadExt, AsyncWriteExt},
@@ -9,6 +12,7 @@ use tokio::{
 use anyhow::{Result, anyhow};
 use time::OffsetDateTime;
 use email::Email;
+use crate::sql::UserID;
 
 async fn fs_read(path: &str) -> Result<String> {
     let file = File::open(path).await?;
@@ -30,3 +34,4 @@ async fn main() -> Result<()> {
     // email.send("liuenyan6@bupt.edu.cn", "Hello".to_string(), "I am ChatAlone.".to_string()).await?;
     Ok(())
 }
+
