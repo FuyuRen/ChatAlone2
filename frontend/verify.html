@@ -35,6 +35,7 @@
         const code = ['', '', '', '', '', ''];
         const inputs = [];
         let currentIndex = 0;
+        let resendTimeout = null;
 
         function handleInput(index, value) {
             if (value.length <= 1 && /^[0-9]*$/.test(value)) {
@@ -78,6 +79,32 @@
                 submitButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
             }
         }
+        
+        function sendVerificationCode() {
+            // TODO: Implement sending verification code logic
+            console.log("发送验证码");
+        }
+
+        function startResendCountdown(seconds = 60) {
+            let remainingSeconds = seconds;
+            const resendButton = document.getElementById('resendButton');
+            resendButton.disabled = true;
+            resendButton.classList.add('text-gray-400', 'cursor-not-allowed');
+            resendButton.textContent = `重新发送 (${remainingSeconds}s)`;
+
+            resendTimeout = setInterval(() => {
+                remainingSeconds--;
+                resendButton.textContent = `重新发送 (${remainingSeconds}s)`;
+
+                if (remainingSeconds <= 0) {
+                    clearInterval(resendTimeout);
+                    resendButton.disabled = false;
+                    resendButton.classList.remove('text-gray-400', 'cursor-not-allowed');
+                    resendButton.classList.add('text-blue-500', 'hover:underline');
+                    resendButton.textContent = '重新发送';
+                }
+            }, 1000);
+        }
 
         root.innerHTML = `
             <div class="w-full max-w-md">
@@ -107,7 +134,7 @@
                     </form>
                     <p class="text-center text-sm text-gray-600 mt-4">
                         没收到验证码？ 
-                        <button class="text-blue-500 hover:underline">重新发送</button>
+                        <button id="resendButton" class="text-blue-500 hover:underline" onclick="sendVerificationCode(); startResendCountdown();">重新发送</button>
                     </p>
                 </div>
             </div>
