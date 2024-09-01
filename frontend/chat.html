@@ -157,6 +157,9 @@
                         <button type="submit"
                             class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md"><i
                                 class="ri-send-plane-fill"></i> 发送</button>
+                        <button type="button"
+                            class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-md"><i
+                                class="ri-image-fill" id="image-upload"></i></button>
                     </form>
                 </div>
             </div>
@@ -193,6 +196,7 @@
         const imageModal = document.getElementById('imageModal');
         const modalImage = document.getElementById('modalImage');
         const userName = document.getElementById('user-name');
+        const imageUploadButton = document.getElementById('image-upload');
 
         let users = {
             online: [],
@@ -397,6 +401,17 @@
             }
             reader.readAsDataURL(blob);
         }
+
+        imageUploadButton.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = (event) => {
+                const file = event.target.files[0];
+                showUploadImageModal(file);
+            }
+            input.click();
+        });
 
         function UploadImage(blob) {
             //TODO: 上传图片
