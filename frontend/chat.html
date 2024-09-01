@@ -17,24 +17,19 @@
 
         *::-webkit-scrollbar {
             width: 8px;
-            /* 设置滚动条宽度 */
         }
 
         *::-webkit-scrollbar-track {
             background: transparent;
-            /* 隐藏滚动条轨道 */
         }
 
         *::-webkit-scrollbar-thumb {
             background-color: rgba(107, 114, 128, 0.5);
-            /* 设置滚动条滑块颜色和透明度 */
             border-radius: 4px;
-            /* 设置滚动条滑块圆角 */
         }
 
         *::-webkit-scrollbar-thumb:hover {
             background-color: rgba(107, 114, 128, 0.7);
-            /* 设置滚动条滑块悬停时的颜色 */
         }
 
         .user-list-item {
@@ -56,6 +51,75 @@
 
             100% {
                 background-color: rgba(var(--breathing-color), 0.1);
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .modal-content {
+            position: absolute;
+            background-color: #fefefe;
+            margin: auto;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 8px;
+            max-width: 80%;
+            max-height: 80%;
+        }
+
+        .modal-content img {
+            display: block;
+            margin: auto;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .fade-out {
+            animation: fadeOut 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
             }
         }
     </style>
@@ -91,19 +155,6 @@
                                 <p>你加入了聊天室</p>
                             </div>
                         </div>
-                        <div class="flex mb-4">
-                            <div class="bg-gray-100 rounded-lg p-3 max-w-[70%] other-message message-bubble ml-4">
-                                <p class="font-semibold text-sm mb-1">Alice</p>
-                                <p class="text-sm">大家好！最近怎么样？</p>
-                            </div>
-                        </div>
-                        <div class="flex mb-4 justify-end">
-                            <div
-                                class="bg-blue-500 rounded-lg p-3 max-w-[70%] text-white user-message message-bubble mr-2">
-                                <p class="font-semibold text-sm mb-1">Bob</p>
-                                <p class="text-sm">嗨，Alice！我很好，谢谢关心。你呢？</p>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 <div class="px-6 py-4 border-t">
@@ -122,13 +173,21 @@
                 </div>
                 <div class="overflow-y-auto flex-grow h-[400px]">
                     <div class="p-6 space-y-4">
-                        <div id="user-list"> </div>
+                        <div id="user-list"></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <div id="imageModal" class="modal" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation();">
+            <span class="close" onclick="closeModal()">
+                <i class="ri-close-line"></i>
+            </span>
+            <img id="modalImage" src="" alt="放大图片">
+        </div>
+    </div>
 
     <script>
         const myName = 'FuyuRen';
@@ -138,6 +197,8 @@
         const messageInput = document.getElementById('message-input');
         const userListContainer = document.getElementById('user-list');
         const onlineCount = document.getElementById('online-count');
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
 
         let users = {
             online: [],
@@ -154,7 +215,6 @@
         });
 
         function sendMessage(message) {
-            // TODO: 发送消息到服务器
             appendMessage('你', message);
             messageInput.focus();
         }
@@ -166,22 +226,59 @@
 
             const isSingleEmoji = /^\p{Extended_Pictographic}$/u.test(message.trim());
 
-            let messageContent = `<p class="font-semibold text-sm mb-1">`;
+            let messageContent = `<p class="font-semibold text-sm mb-1">${user}</p>`;
 
-            messageContent += isSingleEmoji
-                ? `${user}</p><p class="text-6xl">${message}</p>`
-                : `${user}</p><p class="text-sm">${message}</p>`;
+            if (isSingleEmoji) {
+                messageContent += `<p class="text-6xl">${message}</p>`;
+            } else {
+                messageContent += `<p class="text-sm">${message}</p>`;
+            }
 
             const messageElement = `
                 <div class="flex mb-4 ${alignment}">
-                <div class="${bgColorClass} rounded-lg p-3 max-w-[70%] message-bubble ${messageBubbleStyle}"> 
-                    ${messageContent} 
-                </div>
+                    <div class="${bgColorClass} rounded-lg p-3 max-w-[70%] message-bubble ${messageBubbleStyle}"> 
+                        ${messageContent} 
+                    </div>
                 </div>
             `;
+
             messageContainer.innerHTML += messageElement;
             scrollToBottom();
         }
+
+        function appendImageMessage(user, imageUrl) {
+            const alignment = user === '你' ? 'justify-end' : 'justify-start';
+            const bgColorClass = user === '你' ? 'bg-blue-500 text-white user-message' : 'bg-gray-100 other-message';
+            const messageBubbleStyle = user === '你' ? 'mr-8' : 'ml-10';
+
+            const img = new Image();
+            img.onload = function () {
+                let width = img.width;
+                let height = img.height;
+                if (width > 250 || height > 100) {
+                    if (width / height > 250 / 100) {
+                        width = 250;
+                        height = 250 * (img.height / img.width);
+                    } else {
+                        height = 100;
+                        width = 100 * (img.width / img.height);
+                    }
+                }
+                const messageElement = `
+        <div class="flex mb-4 ${alignment}">
+            <div class="${bgColorClass} rounded-lg p-3 max-w-[70%] message-bubble ${messageBubbleStyle}"> 
+                <p class="font-semibold text-sm mb-1">${user}</p>
+                <img src="${imageUrl}" alt="用户图片" style="max-width: 250px; max-height: 100px; width: ${width}px; height: ${height}px;" class="rounded-lg cursor-pointer" onclick="openModal('${imageUrl}')">
+            </div>
+        </div>
+    `;
+                messageContainer.innerHTML += messageElement;
+                scrollToBottom();
+            }
+            img.src = imageUrl;
+
+        }
+
 
         function scrollToBottom() {
             messageContainer.scrollTo({
@@ -239,17 +336,37 @@
             scrollToBottom();
         }
 
+
+        function openModal(imageSrc) {
+            modalImage.src = imageSrc;
+            imageModal.style.display = "block";
+            setTimeout(() => {
+                imageModal.classList.add('fade-in');
+            }, 10);
+        }
+
+        function closeModal() {
+            imageModal.classList.add('fade-out');
+            setTimeout(() => {
+                imageModal.style.display = "none";
+                imageModal.classList.remove('fade-out');
+                imageModal.classList.remove('fade-in');
+                modalImage.src = '';
+            }, 300);
+        }
+
         window.onload = () => {
             appendJoinLeaveMessage('阿姨', true);
-            appendMessage('阿姨', '😀');
+            appendMessage('阿姨', '😡');
+            appendImageMessage('阿姨', 'https://fakeimg.pl/1200x600/ff0000/');
         };
 
 
 
         users = {
             online: [
-                { name: 'FuyuRen', status: '正在玩 jb', color: '255, 234, 34'},
-                { name: 'Alice', status: '正在玩 Minecraft'},
+                { name: 'FuyuRen', status: '正在玩 jb', color: '255, 234, 34' },
+                { name: 'Alice', status: '正在玩 Minecraft' },
                 { name: 'Bob', status: '正在玩 Fortnite' },
                 { name: 'Charlie', status: '' }
             ],
@@ -261,7 +378,7 @@
                 { name: 'Hello World!' }
             ]
         };
-        renderUserList(); 
+        renderUserList();
     </script>
 </body>
 
