@@ -12,7 +12,6 @@ use tokio::{
 use anyhow::{Result, anyhow};
 use time::OffsetDateTime;
 use email::Email;
-use crate::sql::UserID;
 
 async fn fs_read(path: &str) -> Result<String> {
     let file = File::open(path).await?;
@@ -31,7 +30,7 @@ async fn main() -> Result<()> {
     let email_cfg = fs_read("./cfg/email.json").await?;
     let email = Email::from_cfg(&email_cfg)?;
 
-    // email.send("liuenyan6@bupt.edu.cn", "Hello".to_string(), "I am ChatAlone.".to_string()).await?;
+    // email.send("somebody@gmail.com", "Hello".to_string(), "I am ChatAlone.".to_string()).await?;
     Ok(())
 }
 

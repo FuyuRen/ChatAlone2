@@ -87,5 +87,5 @@ impl Email {
 async fn test1() {
     let cfg = include_str!("../cfg/email.json");
     let email = Email::from_cfg(&cfg.to_string()).unwrap();
-    email.send_verify_code("liuenyan6@bupt.edu.cn", 114514).await.unwrap();
+    email.send_verify_code("somebody@gmail.com", 114514).await.unwrap();
 }
