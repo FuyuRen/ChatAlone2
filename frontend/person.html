@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.2.0/remixicon.css"
         integrity="sha512-OQDNdI5rpnZ0BRhhJc+btbbtnxaj+LdQFeh0V9/igiEPDiWE2fG+ZsXl0JEH+bjXKPJ3zcXqNyP4/F/NegVdZg=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="popup.js"></script>
 </head>
 
 <body class="bg-gray-100">
@@ -17,7 +18,7 @@
     <script>
         const root = document.getElementById('root');
         let username = "FuyuRen";
-        let userStatus = ""; // 用户动态
+        let userStatus = "";
         let isEditingUsername = false;
         let isEditingStatus = false;
 
@@ -60,9 +61,30 @@
         }
 
         function showDeleteConfirmation() {
-            if (confirm("Are you absolutely sure?\nThis action cannot be undone. This will permanently delete your account.")) {
+            const deletePopup = createUniversalPopup({
+                title: '警告',
+                content: `
+                    <p>您确定要删除账户吗？<br>此操作不可撤销！这会永久删除您的账户。</p>
+                    <div class="flex justify-end mt-4 space-x-2">
+                        <button id="popup-cancel" class="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-200">取消</button>
+                        <button id="popup-confirm-delete" class="px-4 py-2 rounded-md bg-red-500 hover:bg-red-600 text-white focus:outline-none focus:ring-2 focus:ring-red-500">确认删除</button>
+                    </div>
+                `,
+                onClose: () => {
+                    console.log('Popup closed');
+                }
+            });
+
+            const cancelButton = document.getElementById('popup-cancel');
+            cancelButton.addEventListener('click', deletePopup.close);
+
+            const confirmDeleteButton = document.getElementById('popup-confirm-delete');
+            confirmDeleteButton.addEventListener('click', () => {
                 handleDeleteAccount();
-            }
+                deletePopup.close();
+            });
+
+            deletePopup.show();
         }
 
         function render() {

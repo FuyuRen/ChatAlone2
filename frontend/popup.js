@@ -27,6 +27,7 @@ function createUniversalPopup(options = {}) {
       'max-w-lg',
       'mx-auto',
       'p-4',
+      'px-8',
       'bg-white',
       'rounded-lg',
       'shadow-md'
@@ -70,8 +71,7 @@ function createUniversalPopup(options = {}) {
       </svg>
     `;
     closeButton.addEventListener('click', () => {
-      popupContainer.classList.add('hidden');
-      onClose();
+      closePopup();
     });
     popupHeader.appendChild(closeButton);
   
@@ -95,6 +95,13 @@ function createUniversalPopup(options = {}) {
       popupContainer.classList.add('hidden');
       onClose();
     }
+
+    // Function to close the popup
+    function closePopup() {
+      popupContainer.classList.add('hidden');
+      document.body.removeChild(popupContainer);
+      onClose();
+    }
   
     // Set the content of the popup
     if (typeof content === 'string') {
@@ -106,14 +113,14 @@ function createUniversalPopup(options = {}) {
     // Handle escape key press to close the popup
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
-        hidePopup();
+        closePopup();
       }
     };
   
     popupContainer.addEventListener('click', (event) => {
       // Check if the click is outside of the popup card
       if (event.target === popupContainer) {
-        hidePopup();
+        closePopup();
       }
     });
   
@@ -122,6 +129,7 @@ function createUniversalPopup(options = {}) {
     // Return functions to control the popup
     return {
       show: showPopup,
-      hide: hidePopup
+      hide: hidePopup,
+      close: closePopup,
     };
   }

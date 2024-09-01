@@ -116,14 +116,14 @@
                     throw new Error('Password mismatch');
                 }
             }  catch (error) {
-                const myPopup = createUniversalPopup({
-                    title: 'My Popup',
+                const popup = createUniversalPopup({
+                    title: '错误',
                     content: `<p>${error.message}</p>`,
                     onClose: () => {
                         console.log('Popup closed');
                     }
                 });
-                myPopup.show();
+                popup.show();
                 return;
             }
 
