@@ -3,18 +3,18 @@ use std::{
     str::FromStr,
     sync::Arc,
 };
-
+use std::panic::catch_unwind;
 use nanoid::nanoid;
 use anyhow::{Result, anyhow};
 use rusqlite::{Connection, params};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json::json;
 
 const NANOID_LEN: usize = 16;
 const TABLE_NAME: &str = "user";
 
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct UserID(Vec<u8>);
 
 impl UserID {
@@ -53,6 +53,21 @@ impl Display for UserID {
     }
 }
 
+impl Serialize for UserID {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where S: Serializer {
+        serializer.serialize_str(self.to_string().as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for UserID {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where D: serde::Deserializer<'de> {
+        let s = String::deserialize(deserializer)?;
+        UserID::from_str(s.as_str()).map_err(|e| serde::de::Error::custom(e.to_string()))
+    }
+}
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserTable {
@@ -83,7 +98,7 @@ impl Sql {
         self.conn.execute(
             format!(
                 "CREATE TABLE if not exists {TABLE_NAME} (
-                    userid          integer  primary key    AUTOINCREMENT,
+                    userid          integer  primary key    NOT NULL,
                     register_time   int                     NOT NULL,
                     username        text                    NOT NULL,
                     password        text                    NOT NULL
@@ -125,13 +140,15 @@ impl Sql {
 }
 
 #[test]
-fn main() {
-    let user = UserTable {
+fn test_user_table_serialize_deserialize() {
+    let user1 = UserTable {
         register_time: 0,
         userid: UserID::new(),
         username: "test".to_string(),
         password: "test".to_string(),
     };
-    println!("{}", json!(user))
+    let json = json!(user1).to_string();
+    let user2: UserTable = serde_json::from_str(json.as_str()).unwrap();
+    println!("{:?} {:?}", user1, user2);
 }
 

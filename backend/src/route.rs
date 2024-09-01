@@ -31,7 +31,7 @@ impl Server {
             Router::new()
                 .route("/popup.js", get(||async { Html(include_str!("../../frontend/popup.js")) }))
                 .route("/login",    get(Self::login))
-                .route("/signup",   get(Self::register))
+                .route("/register", get(Self::register))
                 .route("/chat",     get(Self::chat));
 
         // run it
