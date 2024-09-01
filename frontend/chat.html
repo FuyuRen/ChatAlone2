@@ -138,7 +138,7 @@
                         </div>
                         <div>
                             <h2 class="text-lg font-semibold">ChatAlone</h2>
-                            <p class="text-sm text-gray-500" id="online-count">3 在线</p>
+                            <p class="text-sm text-gray-500" id="user-name"></p>
                         </div>
                     </div>
 
@@ -196,9 +196,9 @@
         const messageForm = document.getElementById('message-form');
         const messageInput = document.getElementById('message-input');
         const userListContainer = document.getElementById('user-list');
-        const onlineCount = document.getElementById('online-count');
         const imageModal = document.getElementById('imageModal');
         const modalImage = document.getElementById('modalImage');
+        const userName = document.getElementById('user-name');
 
         let users = {
             online: [],
@@ -265,13 +265,13 @@
                     }
                 }
                 const messageElement = `
-        <div class="flex mb-4 ${alignment}">
-            <div class="${bgColorClass} rounded-lg p-3 max-w-[70%] message-bubble ${messageBubbleStyle}"> 
-                <p class="font-semibold text-sm mb-1">${user}</p>
-                <img src="${imageUrl}" alt="用户图片" style="max-width: 250px; max-height: 100px; width: ${width}px; height: ${height}px;" class="rounded-lg cursor-pointer" onclick="openModal('${imageUrl}')">
-            </div>
-        </div>
-    `;
+                    <div class="flex mb-4 ${alignment}">
+                        <div class="${bgColorClass} rounded-lg p-3 max-w-[70%] message-bubble ${messageBubbleStyle}"> 
+                            <p class="font-semibold text-sm mb-1">${user}</p>
+                            <img src="${imageUrl}" alt="用户图片" style="max-width: 250px; max-height: 100px; width: ${width}px; height: ${height}px;" class="rounded-lg cursor-pointer" onclick="openModal('${imageUrl}')">
+                        </div>
+                    </div>
+                `;
                 messageContainer.innerHTML += messageElement;
                 scrollToBottom();
             }
@@ -319,8 +319,6 @@
                 `;
             });
             userListContainer.innerHTML += offlineListHTML;
-
-            onlineCount.textContent = `${users.online.length} 在线`;
         }
 
         function appendJoinLeaveMessage(user, isJoining) {
@@ -359,9 +357,11 @@
             appendJoinLeaveMessage('阿姨', true);
             appendMessage('阿姨', '😡');
             appendImageMessage('阿姨', 'https://fakeimg.pl/1200x600/ff0000/');
+            //TODO: 获取用户名并显示
+            userName.textContent = `欢迎回来，${myName}`;
+            //TODO: 获取用户列表并显示
+            renderUserList();
         };
-
-
 
         users = {
             online: [
@@ -378,7 +378,6 @@
                 { name: 'Hello World!' }
             ]
         };
-        renderUserList();
     </script>
 </body>
 
