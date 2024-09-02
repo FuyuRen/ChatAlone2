@@ -1,5 +1,4 @@
 use std::cell::{RefCell, RefMut};
-use std::error::Error;
 use std::ops::Deref;
 
 use crypto::hmac::Hmac;
@@ -8,6 +7,8 @@ use crypto::mac::Mac;
 use crypto::sha2::Sha256;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+
+use anyhow::{Result, anyhow};
 
 const SECRET: &str = "test_secret";
 
@@ -64,7 +65,7 @@ pub struct Jwt {
 }
 
 impl Jwt {
-    fn new(user_id: usize) -> Result<Self, Box<dyn Error>> {
+    fn new(user_id: usize) -> Result<Self> {
         let mut handler = RefCell::new(Hmac::<Sha256>::new(Sha256::new(), SECRET.as_bytes()));
         let handle = handler.borrow_mut();
 
@@ -79,16 +80,25 @@ impl Jwt {
             hmac_handler: handler,
         })
     }
-    fn verify(&self) -> Result<bool, Box<dyn Error>> {
+    fn verify(&self) -> Result<bool> {
         let result = Self::generate_signature(self.handler_mut(), self.header(), self.payload())?;
-        Ok(result.eq(self.signature()))
+        if !result.eq(self.signature()) {
+            return Ok(false)
+        }
+
+        let time = OffsetDateTime::now_utc();
+        if time.unix_timestamp() > self.payload.exp_time {
+            return Ok(false)
+        }
+
+        Ok(true)
     }
 
-    fn encode(&self) -> Result<String, Box<dyn Error>> {
+    fn encode(&self) -> Result<String> {
         Ok(format!("{}.{}.{}", self.header_b64()?, self.payload_b64()?, self.signature_b64()))
     }
 
-    pub fn generate_signature(mut handler: RefMut<Hmac<Sha256>>, h: &JwtHeader, p: &JwtPayload) -> Result<JwtSignature, Box<dyn Error>> {
+    pub fn generate_signature(mut handler: RefMut<Hmac<Sha256>>, h: &JwtHeader, p: &JwtPayload) -> Result<JwtSignature> {
         let h_json  = serde_json::to_string(h)?;
         let p_json = serde_json::to_string(p)?;
 
@@ -103,11 +113,11 @@ impl Jwt {
         Ok(signature)
     }
 
-    pub fn header_b64(&self) -> Result<String, Box<dyn Error>> {
+    pub fn header_b64(&self) -> Result<String> {
         let h_json  = serde_json::to_string(self.header())?;
         Ok(URL_SAFE.encode(h_json))
     }
-    pub fn payload_b64(&self) -> Result<String, Box<dyn Error>> {
+    pub fn payload_b64(&self) -> Result<String> {
         let p_json  = serde_json::to_string(self.payload())?;
         Ok(URL_SAFE.encode(p_json))
     }
@@ -133,32 +143,60 @@ impl Jwt {
 
 }
 
+impl TryInto<Jwt> for String {
+    type Error = anyhow::Error;
 
-impl From<&str> for Jwt {
-    fn from(s: &str) -> Self {
-        let jwt_str = String::from(s);
-        let jwt_vec: Vec<&str> = jwt_str.split(".").collect();
+    fn try_into(self) -> std::result::Result<Jwt, Self::Error> {
+        let jwt_vec: Vec<&str> = self.split(".").collect();
         if jwt_vec.len() != 3 {
-            panic!("Invalid JWT.")
+            return Err(anyhow!("Invalid JWT."));
         }
-        let header_json_u8 = URL_SAFE.decode(jwt_vec[0]).unwrap();
-        let payload_json_u8 = URL_SAFE.decode(jwt_vec[1]).unwrap();
+        let header_json_u8 = URL_SAFE.decode(jwt_vec[0])?;
+        let payload_json_u8 = URL_SAFE.decode(jwt_vec[1])?;
         let header_json = String::from_utf8_lossy(header_json_u8.as_slice());
         let payload_json = String::from_utf8_lossy(payload_json_u8.as_slice());
-        let signature = URL_SAFE.decode(jwt_vec[2]).unwrap();
+        let signature = URL_SAFE.decode(jwt_vec[2])?;
 
-        let header: JwtHeader = serde_json::from_str(header_json.deref()).unwrap();
-        let payload: JwtPayload = serde_json::from_str(payload_json.deref()).unwrap();
+        let header: JwtHeader = serde_json::from_str(header_json.deref())?;
+        let payload: JwtPayload = serde_json::from_str(payload_json.deref())?;
         let mut hmac = Hmac::<Sha256>::new(Sha256::new(), SECRET.as_bytes());
         hmac.reset();
 
-        Jwt {
+        Ok( Jwt {
             header,
             payload,
             signature,
             hmac_handler: RefCell::new(hmac)
-        }
+        })
+    }
+}
 
+impl TryFrom<&str> for Jwt {
+    type Error = anyhow::Error;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        let jwt_str = String::from(s);
+        let jwt_vec: Vec<&str> = jwt_str.split(".").collect();
+        if jwt_vec.len() != 3 {
+            return Err(anyhow!("Invalid JWT."));
+        }
+        let header_json_u8 = URL_SAFE.decode(jwt_vec[0])?;
+        let payload_json_u8 = URL_SAFE.decode(jwt_vec[1])?;
+        let header_json = String::from_utf8_lossy(header_json_u8.as_slice());
+        let payload_json = String::from_utf8_lossy(payload_json_u8.as_slice());
+        let signature = URL_SAFE.decode(jwt_vec[2])?;
+
+        let header: JwtHeader = serde_json::from_str(header_json.deref())?;
+        let payload: JwtPayload = serde_json::from_str(payload_json.deref())?;
+        let mut hmac = Hmac::<Sha256>::new(Sha256::new(), SECRET.as_bytes());
+        hmac.reset();
+
+        Ok( Jwt {
+            header,
+            payload,
+            signature,
+            hmac_handler: RefCell::new(hmac)
+        })
     }
 }
 
@@ -169,7 +207,7 @@ fn main() {
     println!("{:?}", serde_json::to_string(&jwt).unwrap());
     println!("{}", str);
     println!("\n");
-    let jwt = Jwt::from(str.as_str());
+    let jwt: Jwt = Jwt::try_from(str.as_str()).unwrap();
     println!("{:?}", serde_json::to_string(&jwt).unwrap());
     println!("{}", jwt.encode().unwrap());
 
