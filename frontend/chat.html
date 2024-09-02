@@ -418,6 +418,7 @@
         function UploadImage(blob) {
             //TODO: 上传图片
             console.log('上传图片:', blob);
+            appendImageMessage('你', URL.createObjectURL(blob));
         }
 
         window.onload = () => {

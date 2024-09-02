@@ -15,6 +15,7 @@
     <div id="root" class="flex items-center justify-center min-h-screen">
     </div>
     <script>
+        const myEmail = "m@example.com";
         const root = document.getElementById('root');
 
         function createInput(index, digit) {
@@ -117,7 +118,8 @@
                     </div>
                     <h2 class="text-2xl text-center font-bold mb-4">验证你的电子邮件</h2>
                     <p class="text-center text-sm text-gray-600 mb-6">
-                        我们已向您的电子邮件发送了一个6位数的验证码，请在下方输入。
+                        我们已向您的电子邮件（${myEmail}）<br>
+                        发送了一个6位数的验证码，请在下方输入。
                     </p>
                     <form id="verificationForm" class="space-y-4">
                         <div class="flex justify-between">
