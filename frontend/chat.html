@@ -255,20 +255,20 @@
             img.onload = function () {
                 let width = img.width;
                 let height = img.height;
-                if (width > 250 || height > 100) {
-                    if (width / height > 250 / 100) {
-                        width = 250;
-                        height = 250 * (img.height / img.width);
+                if (width > 350 || height > 200) {
+                    if (width / height > 350 / 200) {
+                        width = 350;
+                        height = Math.round(width * (img.height / img.width));
                     } else {
-                        height = 100;
-                        width = 100 * (img.width / img.height);
+                        height = 200;
+                        width = Math.round(height * (img.width / img.height));
                     }
                 }
                 const messageElement = `
                     <div class="flex mb-4 ${alignment}">
                         <div class="${bgColorClass} rounded-lg p-3 max-w-[70%] message-bubble ${messageBubbleStyle}"> 
                             <p class="font-semibold text-sm mb-1">${user}</p>
-                            <img src="${imageUrl}" alt="用户图片" style="max-width: 250px; max-height: 100px; width: ${width}px; height: ${height}px;" class="rounded-lg cursor-pointer" onclick="openModal('${imageUrl}')">
+                            <img src="${imageUrl}" alt="用户图片" style="max-width: 350px; max-height: 200px; width: ${width}px; height: ${height}px;" class="rounded-lg cursor-pointer" onclick="openModal('${imageUrl}')">
                         </div>
                     </div>
                 `;
