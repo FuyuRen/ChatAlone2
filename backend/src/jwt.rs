@@ -10,7 +10,19 @@ use time::OffsetDateTime;
 
 use anyhow::{Result, anyhow};
 
-const SECRET: &str = "test_secret";
+use axum::{async_trait, RequestPartsExt, extract::FromRequestParts, http::request::Parts, Json};
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum_extra::{
+    TypedHeader,
+    headers::{
+        authorization::Bearer,
+        Authorization
+    }
+};
+use serde_json::json;
+
+const JWT_SECRET: &str = "test_secret";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum JwtAlg {
@@ -64,8 +76,8 @@ pub struct Jwt {
 }
 
 impl Jwt {
-    fn new(user_id: usize, expire_duration_s: i64, secret: &[u8]) -> Result<Self> {
-        let mut handler = RefCell::new(Hmac::<Sha256>::new(Sha256::new(), secret));
+    fn new(user_id: usize, expire_duration_s: i64) -> Result<Self> {
+        let mut handler = RefCell::new(Hmac::<Sha256>::new(Sha256::new(), JWT_SECRET.as_bytes()));
         let handle = handler.borrow_mut();
 
         let header = JwtHeader::default();
@@ -79,18 +91,35 @@ impl Jwt {
             hmac_handler: handler,
         })
     }
-    pub fn verify(&self) -> Result<bool> {
-        let result = Self::generate_signature(self.handler_mut(), self.header(), self.payload())?;
+
+    fn encode(&self) -> Result<String> {
+        Ok(format!("{}.{}.{}", self.header_b64()?, self.payload_b64()?, self.signature_b64()))
+    }
+
+    pub fn generate(user_id: usize, expire_duration_s: i64) -> Result<String> {
+        Jwt::new(user_id, expire_duration_s)?.encode()
+    }
+
+    pub fn verify(&self) -> Result<(), JwtError> {
+        let result = Self::generate_signature(self.handler_mut(), self.header(), self.payload())
+            .map_err(|_| JwtError::InternalError("Failed to generate signature".into()))?;
+
         if !result.eq(self.signature()) {
-            return Ok(false)
+            return Err(JwtError::InvalidToken)
         }
 
         let time = OffsetDateTime::now_utc();
         if time.unix_timestamp() > self.payload.exp_time {
-            return Ok(false)
+            return Err(JwtError::Expired)
         }
 
-        Ok(true)
+        Ok(())
+    }
+
+    pub fn parse_and_verify(s: &str) -> Result<Self, JwtError> {
+        let jwt: Jwt = s.try_into().map_err(|_| JwtError::InvalidToken)?;
+        jwt.verify()?;
+        Ok(jwt)
     }
 
     fn generate_signature(mut handler: RefMut<Hmac<Sha256>>, h: &JwtHeader, p: &JwtPayload) -> Result<JwtSignature> {
@@ -138,33 +167,39 @@ impl Jwt {
 
 }
 
-impl TryInto<String> for Jwt {
+impl TryInto<Jwt> for String {
     type Error = anyhow::Error;
-    fn try_into(self) -> Result<String, Self::Error> {
-        Ok(format!("{}.{}.{}", self.header_b64()?, self.payload_b64()?, self.signature_b64()))
-    }
-}
 
-pub struct JwtGenerator {
-    secret:         Box<[u8]>,
-    exp_duration:   i64,
-}
-
-impl JwtGenerator {
-    pub fn new(secret: String, default_expire_time_s: i64) -> Self {
-        JwtGenerator {
-            secret: secret.into_bytes().into_boxed_slice(),
-            exp_duration: default_expire_time_s,
+    fn try_into(self) -> std::result::Result<Jwt, Self::Error> {
+        let jwt_vec: Vec<&str> = self.split(".").collect();
+        if jwt_vec.len() != 3 {
+            return Err(anyhow!("Invalid JWT."));
         }
-    }
+        let header_json_u8 = URL_SAFE.decode(jwt_vec[0])?;
+        let payload_json_u8 = URL_SAFE.decode(jwt_vec[1])?;
+        let header_json = String::from_utf8_lossy(header_json_u8.as_slice());
+        let payload_json = String::from_utf8_lossy(payload_json_u8.as_slice());
+        let signature = URL_SAFE.decode(jwt_vec[2])?;
 
-    pub fn generate(&self, user_id: usize, expire_time_s: Option<i64>) -> Result<Jwt> {
-        let expire_duration = expire_time_s.unwrap_or(self.exp_duration);
-        Jwt::new(user_id, expire_duration, &self.secret)
-    }
+        let header: JwtHeader = serde_json::from_str(header_json.deref())?;
+        let payload: JwtPayload = serde_json::from_str(payload_json.deref())?;
+        let mut hmac = Hmac::<Sha256>::new(Sha256::new(), JWT_SECRET.as_bytes());
+        hmac.reset();
 
-    pub fn parse(&self, jwt_str: &str) -> Result<Jwt> {
-        let jwt_str = String::from(jwt_str);
+        Ok( Jwt {
+            header,
+            payload,
+            signature,
+            hmac_handler: RefCell::new(hmac)
+        })
+    }
+}
+
+impl TryFrom<&str> for Jwt {
+    type Error = anyhow::Error;
+
+    fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
+        let jwt_str = String::from(s);
         let jwt_vec: Vec<&str> = jwt_str.split(".").collect();
         if jwt_vec.len() != 3 {
             return Err(anyhow!("Invalid JWT."));
@@ -177,7 +212,7 @@ impl JwtGenerator {
 
         let header: JwtHeader = serde_json::from_str(header_json.deref())?;
         let payload: JwtPayload = serde_json::from_str(payload_json.deref())?;
-        let mut hmac = Hmac::<Sha256>::new(Sha256::new(), &self.secret);
+        let mut hmac = Hmac::<Sha256>::new(Sha256::new(), JWT_SECRET.as_bytes());
         hmac.reset();
 
         Ok( Jwt {
@@ -187,27 +222,62 @@ impl JwtGenerator {
             hmac_handler: RefCell::new(hmac)
         })
     }
+}
 
-    pub fn parse_and_verify(&self, jwt_str: &str) -> Result<bool> {
-        let jwt = Self::parse(self, jwt_str)?;
-        jwt.verify()
+impl TryInto<String> for Jwt {
+    type Error = anyhow::Error;
+    fn try_into(self) -> Result<String, Self::Error> {
+        Ok(format!("{}.{}.{}", self.header_b64()?, self.payload_b64()?, self.signature_b64()))
+    }
+}
+
+pub enum JwtError {
+    InvalidToken,
+    Expired,
+    InternalError(String),
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for Jwt where S: Send + Sync {
+    type Rejection = JwtError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> std::result::Result<Self, Self::Rejection> {
+        let TypedHeader(Authorization(bearer)) = parts
+            .extract::<TypedHeader<Authorization<Bearer>>>().await
+            .map_err(|_| JwtError::InvalidToken)?;
+        let jwt_str = bearer.token();
+        Jwt::parse_and_verify(jwt_str)
+    }
+}
+
+impl IntoResponse for JwtError {
+    fn into_response(self) -> Response {
+        let (status, err_msg) = match self {
+            JwtError::InvalidToken
+                => (StatusCode::UNAUTHORIZED, "Invalid token"),
+            JwtError::Expired
+                => (StatusCode::UNAUTHORIZED, "Token expired"),
+            JwtError::InternalError(_)
+                =>(StatusCode::INTERNAL_SERVER_ERROR, "Token Validation Error")
+        };
+
+        let body = Json(json!({
+            "error": err_msg,
+        }));
+        (status, body).into_response()
     }
 }
 
 #[test]
-fn main() -> Result<()> {
-    let jwt = JwtGenerator::new("test_secret".to_string(), 100);
-    let jwt1 = jwt.generate(114514, Some(100))?;
-    println!("{:?}", serde_json::to_string(&jwt1)?);
-    let str1: String = jwt1.try_into()?;
-    println!("{}", str1);
+fn main() {
+    let jwt = Jwt::new(114514, 10000).unwrap();
+    let str = jwt.encode().unwrap();
+    println!("{:?}", serde_json::to_string(&jwt).unwrap());
+    println!("{}", str);
     println!("\n");
-    let jwt2: Jwt = jwt.parse(str1.as_str())?;
-    println!("{:?}", serde_json::to_string(&jwt2)?);
-    let str2: String = jwt2.try_into()?;
-    println!("{}", str2);
-
-    Ok(())
+    let jwt: Jwt = Jwt::try_from(str.as_str()).unwrap();
+    println!("{:?}", serde_json::to_string(&jwt).unwrap());
+    println!("{}", jwt.encode().unwrap());
 
     // let jwt = Jwt::from(r"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMTQ1MTQsImV4cF90aW1lIjoxNzE2ODAxMDY1NjU5fQ==.7D7kMJXmoomnEO8wzRXDQd2uAEsQNaVzJ2BKH_DCZNs=");
 }

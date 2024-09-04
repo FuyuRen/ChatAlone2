@@ -1,16 +1,18 @@
-use axum::{
-    response::Html,
-    routing::get,
-    Router,
-    Json,
-};
-use axum_extra::extract::Form;
+use axum::{response::Html, body::Body, routing::{get, post}, Router, Json, http::{header, HeaderMap, StatusCode}, response::{
+    Redirect,
+    Response,
+    IntoResponse,
+}, Extension};
+use axum_extra::extract::{Form};
 use serde::Deserialize;
 use std::{
     net::SocketAddr,
     sync::Arc,
 };
 use anyhow::{Result, anyhow};
+use crate::jwt::Jwt;
+
+const FRONTEND_DIR: &'static str = "../../frontend";
 
 #[derive(Debug, Deserialize)]
 struct LoginQuery {
@@ -18,25 +20,33 @@ struct LoginQuery {
     password:   Option<String>,
 }
 
-pub struct Server;
+pub struct Server {
+}
+
+struct JwtVerification;
 
 fn is_valid_email(email: &str) -> bool {
-    let re = regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.com$").unwrap();
+    let re = regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|asia)$").unwrap();
     re.is_match(email)
 }
 
 impl Server {
+    // pub async fn new() -> Self {
+    //     let jwt = JwtGenerator::new("secret".to_string(), 86_400);
+    //     Self { jwt }
+    // }
+
     pub async fn start() -> Result<()> {
         let app =
             Router::new()
-                .route("/popup.js", get(||async { Html(include_str!("../../frontend/popup.js")) }))
-                .route("/login",    get(Self::login))
-                .route("/register", get(Self::register))
+                .route("/popup.js", get(|| async { Html(include_str!("../../frontend/popup.js")) }))
+                .route("/login",    get(|| async { Html(include_str!("../../frontend/login.html")) }))
+                .route("/login",    post(Self::login))
+                .route("/register", get(|| async { Html(include_str!("../../frontend/register.html")) }))
+                .route("/register", post(Self::register))
                 .route("/chat",     get(Self::chat));
 
-        // run it
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-            .await?;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
         println!("listening on {}", listener.local_addr()?);
         axum::serve(listener, app).await?;
 
@@ -67,7 +77,20 @@ impl Server {
     }
 }
 
+enum AuthError {
+    MissingToken,
+    InvalidToken,
+    UnknownError,
+}
+
+impl IntoResponse for AuthError {
+    fn into_response(self) -> Response {
+        todo!()
+    }
+}
+
 #[tokio::test]
 async fn test() {
     Server::start().await.unwrap();
+
 }

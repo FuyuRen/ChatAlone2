@@ -20,7 +20,7 @@ regex = "1.10.6"
 nanoid = "0.4.0"
 
 axum = { version = "0.7.5", features = ["tokio", "ws"] }
-axum-extra = { version = "0.9.3", features = ["form"] }
+axum-extra = { version = "0.9.3", features = ["form", "typed-header"] }
 tower-http = { version = "0.5.2", features = ["trace"] }
 lettre = { version = "0.11.7", features = ["tokio1-native-tls"] }
 
@@ -31,5 +31,7 @@ hex = "0.4.3"
 rand = "0.8.5"
 base64 = "0.22.1"
 # -----------------------------
+
+jsonwebtoken = "9.3.0"
 
 rusqlite = "0.32.1"

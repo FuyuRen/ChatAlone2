@@ -3,6 +3,7 @@ mod route;
 mod room;
 mod sql;
 mod jwt;
+mod uuid;
 
 use std::str::FromStr;
 use tokio::{
