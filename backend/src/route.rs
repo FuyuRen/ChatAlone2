@@ -10,7 +10,7 @@ use std::{
     sync::Arc,
 };
 use anyhow::{Result, anyhow};
-use crate::jwt::Jwt;
+use crate::jwt::{Jwt, JwtError};
 
 const FRONTEND_DIR: &'static str = "../../frontend";
 
@@ -44,7 +44,8 @@ impl Server {
                 .route("/login",    post(Self::login))
                 .route("/register", get(|| async { Html(include_str!("../../frontend/register.html")) }))
                 .route("/register", post(Self::register))
-                .route("/chat",     get(Self::chat));
+                .route("/chat",     get(Self::chat))
+                .route("/test",     get(Self::test));
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
         println!("listening on {}", listener.local_addr()?);
@@ -75,17 +76,11 @@ impl Server {
     async fn chat() -> Html<&'static str> {
         Html(include_str!("../../frontend/chat.html"))
     }
-}
 
-enum AuthError {
-    MissingToken,
-    InvalidToken,
-    UnknownError,
-}
 
-impl IntoResponse for AuthError {
-    fn into_response(self) -> Response {
-        todo!()
+    async fn test(jwt: Jwt) -> Result<String, JwtError> {
+        jwt.verify()?;
+        Ok("Welcome to the protected area :)".to_string())
     }
 }
 

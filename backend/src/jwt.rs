@@ -270,7 +270,7 @@ impl IntoResponse for JwtError {
 
 #[test]
 fn main() {
-    let jwt = Jwt::new(114514, 10000).unwrap();
+    let jwt = Jwt::new(114514, 60).unwrap();
     let str = jwt.encode().unwrap();
     println!("{:?}", serde_json::to_string(&jwt).unwrap());
     println!("{}", str);
