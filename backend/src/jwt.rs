@@ -241,7 +241,7 @@ pub enum JwtError {
 impl<S> FromRequestParts<S> for Jwt where S: Send + Sync {
     type Rejection = JwtError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> std::result::Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> std::result::Result<Self, Self::Rejection> {
         let TypedHeader(Authorization(bearer)) = parts
             .extract::<TypedHeader<Authorization<Bearer>>>().await
             .map_err(|_| JwtError::InvalidToken)?;
@@ -269,7 +269,7 @@ impl IntoResponse for JwtError {
 }
 
 #[test]
-fn main() {
+fn jwt_test() {
     let jwt = Jwt::new(114514, 60).unwrap();
     let str = jwt.encode().unwrap();
     println!("{:?}", serde_json::to_string(&jwt).unwrap());
