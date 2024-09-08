@@ -33,8 +33,7 @@
                             <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
                             <input type="password" name="password" id="password"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
-                                pattern="^[a-zA-Z0-9]{8,20}$" required>
-                            <small id="passwordHelp" class="text-red-500 hidden">密码长度必须在8-20位，且只能包含字母和数字</small>
+                                required>
                         </div>
                     </div>
                     <div class="mt-6">
@@ -53,11 +52,17 @@
 
     <script src="popup.js"></script>
     <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const allCookies = document.cookie;
+            console.log(allCookies);
+            // TODO: Check if logged in (jwt cookie)
+        });
+    </script>
+    <script>
         const form = document.getElementById('loginForm');
         const identifierInput = document.getElementById('identifier');
         const identifierHelp = document.getElementById('identifierHelp');
         const passwordInput = document.getElementById('password');
-        const passwordHelp = document.getElementById('passwordHelp');
 
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const usernamePattern = /^[\u4e00-\u9fa5a-zA-Z0-9_-]{2,20}$/;
@@ -74,14 +79,14 @@
 
         form.addEventListener('submit', (event) => {
             event.preventDefault();
-
+            const formData = {
+                email: identifierInput.value,
+                password: passwordInput.value,
+            };
             try {
                 if (!emailPattern.test(identifierInput.value) && !usernamePattern.test(identifierInput.value)) {
                     identifierHelp.classList.remove('hidden');
                     throw new Error('Invalid identifier');
-                } else if (!passwordPattern.test(passwordInput.value)) {
-                    passwordHelp.classList.remove('hidden');
-                    throw new Error('Invalid password');
                 }
             } catch (error) {
                 const popup = createUniversalPopup({
@@ -95,10 +100,39 @@
                 return;
             }
 
-            // TODO: submit form data
-            console.log('submit:', {
-                identifier: identifierInput.value,
-                password: passwordInput.value,
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => {
+                return response.json().then(data => {
+                    console.log('Response:', data);
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Login failed');
+                    }
+                    if (data.status !== 'ok') {
+                        throw new Error(data.error || 'Login failed');
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                window.location.href = '/chat';
+            })
+            .catch(error => {
+                console.error('Login failed:', error);
+
+                const popup = createUniversalPopup({
+                    title: '错误',
+                    content: `<p>${error.message}</p>`,
+                    onClose: () => {
+                        console.log('Popup closed');
+                    }
+                });
+                popup.show();
             });
         });
     </script>
