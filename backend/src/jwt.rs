@@ -262,6 +262,7 @@ impl IntoResponse for JwtError {
         };
 
         let body = Json(json!({
+            "status": "error",
             "error": err_msg,
         }));
         (status, body).into_response()
