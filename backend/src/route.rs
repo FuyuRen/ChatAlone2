@@ -10,7 +10,6 @@ use axum::{
         IntoResponse,
     }
 };
-// use axum_extra::extract::{Form};
 use serde::{Deserialize, Serialize};
 
 use anyhow::{Result, anyhow, Error};
@@ -115,6 +114,8 @@ pub async fn new(addr: &str, user_db: UserDB) -> Result<()> {
         .route("/test",     get(test))
         .with_state(state);
 
+    let app = app.fallback(handler_404);
+
     let listener = tokio::net::TcpListener::bind(addr).await?;
     println!("listening on {}", listener.local_addr()?);
     axum::serve(listener, app).await?;
@@ -148,7 +149,7 @@ async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> 
     let mut ret
         = (StatusCode::OK, Json(json!({"status": "error", "error": "Internal server error"})));
 
-    println!("called with params: {:?}", params);
+    println!("post(login) called with params: {:?}", params);
     let LoginParams{email, password} = params;
 
     if email.is_none() || password.is_none() {
@@ -165,12 +166,14 @@ async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> 
     }
 
     if let Some(id) = check_login(&state.user_db, &email, &password).await {
+        println!("post(login) user found");
         let jwt = Jwt::generate(i64::from(&id) as usize, 60);
         if let Ok(jwt) = jwt {
-            ret.1 = Json::from(json!({"status": "success", "token": jwt}));
+            ret.1 = Json::from(json!({"status": "ok", "token": jwt}));
             return ret
         };
     } else {
+        println!("post(login) user not found");
         ret.1 = Json::from(json!({"status": "error", "error": "Invalid email or password"}));
         return ret
     }
@@ -207,7 +210,7 @@ async fn post_register(state: State<AppState>, Json(params): Json<RegisterParams
     if let Err(_) = db.insert(&new_user).await {
         (StatusCode::OK, Json(json!({"status": "error", "error": "Internal server error"})))
     } else {
-        (StatusCode::OK, Json(json!({"status": "success"})))
+        (StatusCode::OK, Json(json!({"status": "ok"})))
     }
 
 }
@@ -223,3 +226,6 @@ async fn test(jwt: Jwt) -> Result<String, JwtError> {
     Ok("Welcome to the protected area :)".to_string())
 }
 
+async fn handler_404() -> Html<&'static str> {
+    Html::from("<html><body><h1>404 Not Found :(</h1></body></html>")
+}
