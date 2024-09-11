@@ -20,6 +20,7 @@ use axum_extra::{
         Authorization
     }
 };
+use axum_extra::headers::Cookie;
 use serde_json::json;
 
 const JWT_SECRET: &str = "test_secret";
@@ -242,10 +243,15 @@ impl<S> FromRequestParts<S> for Jwt where S: Send + Sync {
     type Rejection = JwtError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> std::result::Result<Self, Self::Rejection> {
-        let TypedHeader(Authorization(bearer)) = parts
-            .extract::<TypedHeader<Authorization<Bearer>>>().await
+        let TypedHeader(cookie) = parts
+            .extract::<TypedHeader<Cookie>>().await
             .map_err(|_| JwtError::InvalidToken)?;
-        let jwt_str = bearer.token();
+        let jwt_str = cookie.get("token").ok_or(JwtError::InvalidToken)?;
+
+        // let TypedHeader(Authorization(bearer)) = parts
+        //     .extract::<TypedHeader<Authorization<Bearer>>>().await
+        //     .map_err(|_| JwtError::InvalidToken)?;
+        // let jwt_str = bearer.token();
         Jwt::parse_and_verify(jwt_str)
     }
 }

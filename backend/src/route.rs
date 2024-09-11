@@ -3,19 +3,28 @@ use axum::{
     Router,
     response::Html,
     routing::{get, post},
-    http::{StatusCode},
+    extract::State,
+    http::{
+        header,
+        Response,
+        StatusCode,
+    },
     response::{
-        // Redirect,
-        // Response,
+        Redirect,
         IntoResponse,
     }
 };
+use axum_extra::{
+    headers::{Cookie},
+    extract::cookie,
+};
+
 use serde::{Deserialize, Serialize};
 
 use anyhow::{Result, anyhow, Error};
-use axum::extract::State;
-use axum::http::Response;
-use serde_json::{json};
+use axum::body::Body;
+use axum::http::HeaderValue;
+use serde_json::{json, Value};
 use tokio::fs::File;
 use tokio::io;
 use tokio::io::AsyncReadExt;
@@ -105,8 +114,8 @@ pub async fn new(addr: &str, user_db: UserDB) -> Result<()> {
     let state = AppState::new(user_db);
 
     let app = Router::new()
-        .route("/popup.js", get(get_popup))
         .route("/login",    get(get_login))
+        .route("/popup.js", get(get_popup))
         .route("/login",    post(post_login))
         .route("/register", get(get_register))
         .route("/register", post(post_register))
@@ -145,40 +154,53 @@ async fn get_register() -> Html<String> {
     }
 }
 
-async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> impl IntoResponse {
-    let mut ret
-        = (StatusCode::OK, Json(json!({"status": "error", "error": "Internal server error"})));
+async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> Response<Body> {
+    let ret = Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "application/json");
+
+    // let mut ret = (
+    //     StatusCode::OK,
+    //     Json(json!({"status": "error", "error": "Internal unknown error"}))
+    // );
 
     println!("post(login) called with params: {:?}", params);
     let LoginParams{email, password} = params;
 
     if email.is_none() || password.is_none() {
-        ret.1 = Json::from(json!({"status": "error", "error": "Null email or password"}));
-        return ret
+        return ret.body(Body::from(json!({"status": "error", "error": "Null email or password"}).to_string())).unwrap();
     }
 
     let email = email.unwrap();
     let password = password.unwrap();
 
     if ! is_valid_email(&email) {
-        ret.1 = Json::from(json!({"status": "error", "error": "Illegal email or password"}));
-        return ret
+        return ret.body(Body::from(json!({"status": "error", "error": "Illegal email or password"}).to_string())).unwrap();
     }
 
     if let Some(id) = check_login(&state.user_db, &email, &password).await {
         println!("post(login) user found");
         let jwt = Jwt::generate(i64::from(&id) as usize, 60);
         if let Ok(jwt) = jwt {
-            ret.1 = Json::from(json!({"status": "ok", "token": jwt}));
-            return ret
+            let jwt_cookie = cookie::Cookie::build(("token", jwt))
+                .path("/")
+                .max_age(time::Duration::hours(1))
+                .http_only(true)
+                .secure(false)
+                .build();
+
+            return ret.header(header::SET_COOKIE, jwt_cookie.to_string())
+                        .body(Body::from(json!({"status": "ok"}).to_string())).unwrap();
         };
     } else {
         println!("post(login) user not found");
-        ret.1 = Json::from(json!({"status": "error", "error": "Invalid email or password"}));
-        return ret
+        return ret.body(Body::from(json!({"status": "error", "error": "Invalid email or password"}).to_string())).unwrap();
     }
 
-    ret
+    Response::builder()
+        .status(StatusCode::INTERNAL_SERVER_ERROR)
+        .header("Content-Type", "application/json")
+        .body(Body::from(json!({"status": "error", "error": "Internal unknown error"}).to_string())).unwrap()
 }
 
 async fn check_login(user_db: &UserDB, email: &String, password: &String) -> Option<UUID> {
@@ -192,25 +214,40 @@ async fn check_login(user_db: &UserDB, email: &String, password: &String) -> Opt
 async fn post_register(state: State<AppState>, Json(params): Json<RegisterParams>) -> impl IntoResponse {
     let db = &state.user_db;
     if !params.is_legal() {
-        return (StatusCode::OK, Json(json!({"status": "error", "error": "Invalid register params"})));
+        return (
+            StatusCode::OK,
+            Json(json!({"status": "error", "error": "Invalid register params"}))
+        );
     }
     let user = db.select(params.email.as_ref().unwrap()).await;
 
     if let Ok(_) = user {
-        return (StatusCode::OK, Json(json!({"status": "error", "error": "Email already registered"})));
+        return (
+            StatusCode::OK,
+            Json(json!({"status": "error", "error": "Email already registered"}))
+        );
     }
     if let Err(e) = &user {
         if !e.to_string().eq("user not found") {
-            return (StatusCode::OK, Json(json!({"status": "error", "error": "Internal server error"})));
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"status": "error", "error": "Internal database error"}))
+            );
         }
     }
     drop(user);
 
     let new_user: UserTable = params.try_into().unwrap();
     if let Err(_) = db.insert(&new_user).await {
-        (StatusCode::OK, Json(json!({"status": "error", "error": "Internal server error"})))
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"status": "error", "error": "Internal database error"}))
+        )
     } else {
-        (StatusCode::OK, Json(json!({"status": "ok"})))
+        (
+            StatusCode::OK,
+            Json(json!({"status": "ok"}))
+        )
     }
 
 }
