@@ -27,7 +27,8 @@
                             <input type="text" name="username" id="username" placeholder="请输入用户名"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
                                 pattern="^[\u4e00-\u9fa5a-zA-Z0-9\s_.-@]{2,20}$" required>
-                            <small id="usernameHelp" class="text-red-500 hidden">用户名长度必须在2-20位，且只能包含中文、英文、数字和下划线、减号</small>
+                            <small id="usernameHelp"
+                                class="text-red-500 hidden">用户名长度必须在2-20位，且只能包含中文、英文、数字和下划线、减号</small>
                         </div>
                         <div>
                             <label for="email" class="block text-sm font-medium text-gray-700">邮箱</label>
@@ -39,8 +40,8 @@
                             <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
                             <input type="password" name="password" id="password"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
-                                pattern="^[a-zA-Z0-9]{8,20}$" required>
-                            <small id="passwordHelp" class="text-red-500 hidden">密码长度必须在8-20位，且只能包含字母和数字</small>
+                                pattern="^[a-zA-Z0-9!@#$%^&*]{8,20}$" required>
+                            <small id="passwordHelp" class="text-red-500 hidden">密码长度必须在8-20位，且只能包含字母、数字和特殊符号</small>
                         </div>
                         <div>
                             <label for="confirm-password" class="block text-sm font-medium text-gray-700">确认密码</label>
@@ -63,7 +64,7 @@
             </div>
         </div>
     </div>
-    
+
     <script src="popup.js"></script>
     <script>
         const form = document.getElementById('registrationForm');
@@ -75,7 +76,7 @@
         const confirmPasswordHelp = document.getElementById('confirmPasswordHelp');
 
         const usernamePattern = /^[\u4e00-\u9fa5a-zA-Z0-9_-]{2,20}$/;
-        const passwordPattern = /^[a-zA-Z0-9]{8,20}$/;
+        const passwordPattern = /^[a-zA-Z0-9!@#$%^&*]{8,20}$/;
 
         usernameInput.addEventListener('input', () => {
             if (!usernamePattern.test(usernameInput.value)) {
@@ -101,39 +102,86 @@
             }
         });
 
+
         form.addEventListener('submit', (event) => {
             event.preventDefault();
 
             try {
                 if (!usernamePattern.test(usernameInput.value)) {
                     usernameHelp.classList.remove('hidden');
-                    throw new Error('Invalid username');
+                    throw new Error('用户名格式不正确');
                 } else if (!passwordPattern.test(passwordInput.value)) {
                     passwordHelp.classList.remove('hidden');
-                    throw new Error('Invalid password');
+                    throw new Error('密码格式不正确');
                 } else if (passwordInput.value !== confirmPasswordInput.value) {
                     confirmPasswordHelp.classList.remove('hidden');
-                    throw new Error('Password mismatch');
+                    throw new Error('两次输入的密码不匹配');
                 }
-            }  catch (error) {
+            } catch (error) {
                 const popup = createUniversalPopup({
                     title: '错误',
                     content: `<p>${error.message}</p>`,
                     onClose: () => {
-                        console.log('Popup closed');
+                        console.log('弹窗已关闭');
                     }
                 });
                 popup.show();
                 return;
             }
 
-            // TODO: submit form data
-            console.log('submit:', {
-                username: usernameInput.value,
-                email: form.email.value,
-                password: passwordInput.value,
-                confirmPassword: confirmPasswordInput.value
-            });
+            fetch('http://chatalone.asia:55555/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: form.email.value,
+                    username: usernameInput.value,
+                    password: passwordInput.value,
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+                    if (data.status === 'ok') {
+                        console.log('注册成功');
+                        window.location.href = '/login';
+                    } else {
+                        let errorMessage = '注册失败，请稍后再试。';
+
+                        switch (data.error) {
+                            case 'Invalid register params':
+                                errorMessage = '注册信息有误，请检查后重试。';
+                                break;
+                            case 'Email already registered':
+                                errorMessage = '该邮箱地址已被注册。';
+                                break;
+                            case 'Invalid email or password':
+                                errorMessage = '邮箱地址或密码错误。';
+                                break;
+                        }
+
+                        const popup = createUniversalPopup({
+                            title: '错误',
+                            content: `<p>${errorMessage}</p>`,
+                            onClose: () => {
+                                console.log('弹窗已关闭');
+                            }
+                        });
+                        popup.show();
+                    }
+                })
+                .catch(error => {
+                    console.error('注册过程中发生错误：', error);
+                    const popup = createUniversalPopup({
+                        title: '错误',
+                        content: '<p>注册过程中发生错误，请稍后再试。</p>',
+                        onClose: () => {
+                            console.log('弹窗已关闭');
+                        }
+                    });
+                    popup.show();
+                });
         });
     </script>
 </body>
