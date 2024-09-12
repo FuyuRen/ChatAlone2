@@ -1,33 +1,36 @@
+use std::fmt::Display;
+
+use tokio::fs::File;
+use tokio::io;
+use tokio::io::AsyncReadExt;
+use anyhow::{Result, anyhow, Error};
+
+use serde::{ ser::SerializeMap, Deserialize, Serialize };
+use serde_json::{json, Value};
+
 use axum::{
     Json,
     Router,
+    body::Body,
     response::Html,
     routing::{get, post},
     extract::State,
     http::{
         header,
-        Response,
+        HeaderName,
         StatusCode,
     },
     response::{
         Redirect,
+        Response,
         IntoResponse,
     }
 };
 use axum_extra::{
-    headers::{Cookie},
+    headers::{Cookie, HeaderMap},
     extract::cookie,
 };
 
-use serde::{Deserialize, Serialize};
-
-use anyhow::{Result, anyhow, Error};
-use axum::body::Body;
-use axum::http::HeaderValue;
-use serde_json::{json, Value};
-use tokio::fs::File;
-use tokio::io;
-use tokio::io::AsyncReadExt;
 use crate::email::Email;
 use crate::jwt::{Jwt, JwtError};
 use crate::sql::{UserDB, UserTable};
@@ -35,6 +38,7 @@ use crate::uuid::UUID;
 
 const FRONTEND_DIR: &'static str = "../../frontend";
 const DISABLE_DYNAMIC_LOADING: bool = false;
+const JWT_EXPIRE_DURATION: i64 = 30;
 
 
 #[derive(Debug, Deserialize)]
@@ -71,18 +75,114 @@ impl TryInto<UserTable> for RegisterParams {
     }
 }
 
-// #[derive(Debug, Serialize, Deserialize)]
-// pub struct ServerResponse<'a> {
-//     status: &'a str,
-//     error:  Option<&'a str>,
-//     data:   Option<Value>,
-// }
-//
-// impl IntoResponse for ServerResponse<'_> {
-//     fn into_response(self) -> Response {
-//
-//     }
-// }
+#[derive(Debug, Copy, Clone)]
+enum ServerResponseError {
+    SUCCESS,
+    InvalidRegisterParams,
+    InternalErrorError,
+}
+impl ServerResponseError {
+    fn code(&self) -> u32 {
+        *self as u32
+    }
+    fn message(&self) -> &'static str {
+        match self {
+            ServerResponseError::SUCCESS => "Success",
+            ServerResponseError::InvalidRegisterParams => "Invalid register params",
+            ServerResponseError::InternalErrorError => "Internal error",
+        }
+    }
+
+    fn is_success(&self) -> bool {
+        self.code() == 0
+    }
+}
+impl Display for ServerResponseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ret = self.message();
+        write!(f, "{}", ret)?;
+        Ok(())
+    }
+}
+
+struct ServerResponse {
+    status:     StatusCode,
+    error:      ServerResponseError,
+    headers:    HeaderMap,
+    data:       Option<Value>
+}
+
+impl ServerResponse {
+    fn ok(data: Option<Value>) -> Self {
+        Self::new(StatusCode::OK, ServerResponseError::SUCCESS, data)
+    }
+
+    fn fine( error: ServerResponseError, data: Option<Value>) -> Self {
+        Self::new(StatusCode::OK, error, data)
+    }
+
+    fn new(status: StatusCode, error: ServerResponseError, data: Option<Value>) -> Self {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::CONTENT_TYPE, "application/json".parse().unwrap());
+        headers.append(header::ORIGIN, "*".parse().unwrap());
+
+        ServerResponse {
+            status,
+            error,
+            headers,
+            data,
+        }
+    }
+
+    fn append_header(mut self, (k, v): (HeaderName, &str)) -> Result<Self> {
+        self.headers.append(k, v.parse()?);
+        Ok(self)
+    }
+
+    fn set_status(mut self, status: StatusCode) -> Self {
+        self.status = status;
+        self
+    }
+
+    fn data(mut self, data: Option<Value>) -> Self {
+        self.data = data;
+        self
+    }
+
+}
+
+impl Default for ServerResponse {
+    fn default() -> Self {
+        Self::ok(None)
+    }
+}
+
+impl Serialize for ServerResponse {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        let mut map = if self.error.is_success() {
+            serializer.serialize_map(Some(2))?
+        } else {
+            let mut map = serializer.serialize_map(Some(3))?;
+            map.serialize_entry("errmsg", self.error.message())?;
+            map
+        };
+        map.serialize_entry("errcode", &(self.error.code()))?;
+        map.serialize_entry("data", &self.data)?;
+        map.end()
+    }
+}
+
+impl IntoResponse for ServerResponse {
+    fn into_response(self) -> Response {
+        let value = json!(&self);
+        let status = self.status;
+        let headers = self.headers;
+
+        (status, headers, Json::from(value)).into_response()
+
+    }
+}
 
 pub async fn fs_read(path: &str) -> Result<String> {
     let file = File::open(path).await?;
@@ -154,7 +254,7 @@ async fn get_register() -> Html<String> {
     }
 }
 
-async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> Response<Body> {
+async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> impl IntoResponse {
     let ret = Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", "application/json");
@@ -168,7 +268,11 @@ async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> 
     let LoginParams{email, password} = params;
 
     if email.is_none() || password.is_none() {
-        return ret.body(Body::from(json!({"status": "error", "error": "Null email or password"}).to_string())).unwrap();
+        // return ret.body(Body::from(json!({"status": "error", "error": "Null email or password"}).to_string())).unwrap();
+        return ServerResponse::fine(
+            ServerResponseError::InternalErrorError,
+            Some(json!({"status": "error", "error": "Null email or password"}))
+        );
     }
 
     let email = email.unwrap();
@@ -180,7 +284,7 @@ async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> 
 
     if let Some(id) = check_login(&state.user_db, &email, &password).await {
         println!("post(login) user found");
-        let jwt = Jwt::generate(i64::from(&id) as usize, 60);
+        let jwt = Jwt::generate(i64::from(&id) as usize, JWT_EXPIRE_DURATION);
         if let Ok(jwt) = jwt {
             let jwt_cookie = cookie::Cookie::build(("token", jwt))
                 .path("/")
@@ -252,14 +356,12 @@ async fn post_register(state: State<AppState>, Json(params): Json<RegisterParams
 
 }
 
-async fn chat(jwt: Jwt) -> Result<Html<&'static str>, JwtError> {
-    jwt.verify()?;
-    Ok(Html(include_str!("../../frontend/chat.html")))
+async fn chat(_jwt: Jwt) -> Result<Html<String>, JwtError> {
+    Ok(Html(include_str!("../../frontend/chat.html").to_string()))
 }
 
 
-async fn test(jwt: Jwt) -> Result<String, JwtError> {
-    jwt.verify()?;
+async fn test(_jwt: Jwt) -> Result<String, JwtError> {
     Ok("Welcome to the protected area :)".to_string())
 }
 
