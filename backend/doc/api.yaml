@@ -1,0 +1,152 @@
+openapi: 3.0.1
+info:
+  title: Sample API
+  description: API description in Markdown.
+  version: 1.0.0
+servers:
+  - url: 'http://chatalone.asia:55555'
+paths:
+  /login:
+    get:
+      summary: Return the login page.
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Login to the system.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: The email to login.
+                  format: email
+                  example: "sb@chatalone.asia"
+                password:
+                  type: string
+                  description: Corresponding password, should be pre-encrypted.
+                  format: password
+                  example: "$2a$10$U9BZoJ5R5L7q5Q9X7e6WuO3L0Z7Q8z0X1J5K6l7M8O0P9q8A7z0"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: The status of the login.
+                    example: "error"
+                    enum:
+                      - ok
+                      - error
+                  error:
+                    type: string
+                    description: The error message if any.
+                    example: "Invalid email or password"
+                    enum:
+                      - Null email or password
+                      - Illegal email or password
+                      - Invalid email or password
+                    nullable: true
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: The status of the login.
+                    example: "error"
+                    enum:
+                      - error
+                  error:
+                    type: string
+                    description: The error message if any.
+                    example: "Internal unknown error"
+                    enum:
+                      - Internal unknown error
+
+  /register:
+    get:
+      summary: Return the register page.
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Register to the system.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: The email to register.
+                  format: email
+                  example: "sb@chatalone.asia"
+
+                username:
+                  type: string
+                  description: The username to register.
+                  example: "sb"
+
+                password:
+                  type: string
+                  description: Corresponding password, should be pre-encrypted.
+                  format: password
+                  example: "$2a$10$U9BZoJ5R5L7q5Q9X7e6WuO3L0Z7Q8z0X1J5K6l7M8O0P9q8A7z0"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: The status of the register.
+                    example: "error"
+                    enum:
+                      - ok
+                      - error
+                  error:
+                    type: string
+                    description: The error message if any.
+                    example: "Invalid register params"
+                    enum:
+                      - Invalid register params
+                      - Email already registered
+                      - Invalid email or password
+                    nullable: true
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: The status of the register.
+                    example: "error"
+                    enum:
+                      - error
+                  error:
+                    type: string
+                    description: The error message if any.
+                    example: "Internal database error"
+                    enum:
+                      - Internal database error
+                      - Internal unknown error

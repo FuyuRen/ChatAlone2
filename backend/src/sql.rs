@@ -13,15 +13,30 @@ use crate::uuid::UUID;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserTable {
-    register_time:  i64,
-    userid:         UUID,
-    email:          String,
-    username:       String,
-    password:       String,
+    pub register_time:  i64,
+    pub userid:         UUID,
+    pub email:          String,
+    pub username:       String,
+    pub password:       String,
 }
 
-struct SqlConn(Arc<Mutex<Connection>>);
+impl UserTable {
+    pub fn new(email: &str, username: &str, password: &str) -> Self {
+        UserTable {
+            register_time:  time::OffsetDateTime::now_utc().unix_timestamp(),
+            userid:         UUID::new(),
+            email:          email.to_string(),
+            username:       username.to_string(),
+            password:       password.to_string(),
+        }
+    }
+    pub fn verify_password(&self, password: &String) -> bool {
+        self.password.eq(password)
+    }
+}
 
+
+#[derive(Debug, Clone)]
 pub struct UserDB {
     db_name:    &'static str,
     sql:        SqlConn,
@@ -66,16 +81,16 @@ impl UserDB {
         Ok(())
     }
 
-    pub async fn select(&self, username: &str) -> Result<UserTable> {
+    pub async fn select(&self, email: &str) -> Result<UserTable> {
         let name = self.db_name;
         let conn = self.sql.0.lock().await;
         let mut stmt = conn.prepare(
             format!(
                 "SELECT userid, register_time, email, username, password FROM {name}
-                 WHERE username = ?1"
+                 WHERE email = ?1"
             ).as_str()
         )?;
-        let mut rows = stmt.query(params![username])?;
+        let mut rows = stmt.query(params![email])?;
         // only first one
         let row = rows.next()?;
 
@@ -95,6 +110,8 @@ impl UserDB {
     }
 }
 
+#[derive(Debug)]
+pub struct SqlConn(Arc<Mutex<Connection>>);
 impl Clone for SqlConn {
     fn clone(&self) -> Self {
         Self(Arc::clone(&self.0))
@@ -151,7 +168,7 @@ async fn test_user_table_insert_select() {
     println!("{:?}", user1.userid);
     user_db.insert(&user1).await.unwrap();
 
-    let user2 = user_db.select("admin").await.unwrap();
+    let user2 = user_db.select("sb").await;
     println!("{:?}", user2);
 }
 

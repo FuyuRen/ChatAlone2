@@ -13,18 +13,13 @@ use tokio::{
 use anyhow::{Result, anyhow};
 use time::OffsetDateTime;
 use email::Email;
+use crate::route::{fs_read, new};
+use crate::sql::{
+    SqlConn, UserDB, UserTable,
+};
 
-async fn fs_read(path: &str) -> Result<String> {
-    let file = File::open(path).await?;
-    let mut reader = io::BufReader::new(file);
-
-    let mut email_cfg = String::new();
-    reader.read_to_string(&mut email_cfg).await?;
-    Ok(email_cfg)
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
+#[tokio::test]
+async fn test_email() -> Result<()> {
     let time = OffsetDateTime::now_utc();
     println!("{}", time);
 
@@ -33,5 +28,13 @@ async fn main() -> Result<()> {
 
     // email.send("somebody@gmail.com", "Hello".to_string(), "I am ChatAlone.".to_string()).await?;
     Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let addr = "0.0.0.0:55555";
+    let sql_conn = SqlConn::new()?;
+    let user_db = UserDB::init("users", sql_conn).await?;
+    new(addr, user_db).await
 }
 
