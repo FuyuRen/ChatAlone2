@@ -23,11 +23,11 @@
                 <form id="loginForm">
                     <div class="space-y-4">
                         <div>
-                            <label for="identifier" class="block text-sm font-medium text-gray-700">邮箱或用户名</label>
-                            <input type="text" name="identifier" id="identifier" placeholder="m@example.com 或 用户名"
+                            <label for="identifier" class="block text-sm font-medium text-gray-700">邮箱</label>
+                            <input type="text" name="identifier" id="identifier" placeholder="m@example.com"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
                                 required>
-                            <small id="identifierHelp" class="text-red-500 hidden">请输入正确的邮箱地址或用户名</small>
+                            <small id="identifierHelp" class="text-red-500 hidden">请输入正确的邮箱地址</small>
                         </div>
                         <div>
                             <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
@@ -58,12 +58,11 @@
         const passwordInput = document.getElementById('password');
 
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const usernamePattern = /^[\u4e00-\u9fa5a-zA-Z0-9_-]{2,20}$/;
 
         const passwordPattern = /^[a-zA-Z0-9]{8,20}$/;
 
         identifierInput.addEventListener('input', () => {
-            if (!emailPattern.test(identifierInput.value) && !usernamePattern.test(identifierInput.value)) {
+            if (!emailPattern.test(identifierInput.value)) {
                 identifierHelp.classList.remove('hidden');
             } else {
                 identifierHelp.classList.add('hidden');
