@@ -1,4 +1,5 @@
 use std::cell::{RefCell, RefMut};
+use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
 use crypto::hmac::Hmac;
@@ -236,6 +237,12 @@ pub enum JwtError {
     InvalidToken,
     Expired,
     InternalError(String),
+}
+
+impl Display for JwtError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
 }
 
 #[async_trait]

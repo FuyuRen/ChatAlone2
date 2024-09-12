@@ -20,7 +20,7 @@ regex = "1.10.6"
 nanoid = "0.4.0"
 
 axum = { version = "0.7.5", features = ["tokio", "ws"] }
-axum-extra = { version = "0.9.3", features = ["cookie", "typed-header"] }
+axum-extra = { version = "0.9.3", features = ["form", "typed-header", "cookie"] }
 tower-http = { version = "0.5.2", features = ["trace"] }
 lettre = { version = "0.11.7", features = ["tokio1-native-tls"] }
 
