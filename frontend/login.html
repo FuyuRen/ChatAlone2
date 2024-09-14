@@ -99,20 +99,36 @@
                 },
                 body: JSON.stringify(formData)
             })
-            .then(response => {
-                return response.json().then(data => {
-                    console.log('Response:', data);
-                    if (!response.ok) {
-                        throw new Error(data.error || 'Login failed');
-                    }
-                    if (data.status !== 'ok') {
-                        throw new Error(data.error || 'Login failed');
-                    }
-                    return data;
-                });
-            })
+            .then(response => response.json())
             .then(data => {
-                window.location.href = '/chat';
+                console.log(data);
+                if (data.errcode === 0) {
+                    console.log('登录成功');
+                    window.location.href = '/chat';
+                } else {
+                    let errorMessage = '登录失败，请稍后再试。';
+
+                    switch (data.errcode) { 
+                        case 1:
+                            errorMessage = '请输入邮箱地址和密码。';
+                            break;
+                        case 2:
+                            errorMessage = '邮箱地址或密码不合法。';
+                            break;
+                        case 3:
+                            errorMessage = '邮箱地址或密码错误。';
+                            break;
+                    }
+
+                    const popup = createUniversalPopup({
+                        title: '错误',
+                        content: `<p>${errorMessage}</p>`,
+                        onClose: () => {
+                            console.log('弹窗已关闭');
+                        }
+                    });
+                    popup.show();
+                }
             })
             .catch(error => {
                 console.error('Login failed:', error);

@@ -143,21 +143,18 @@
                 .then(response => response.json())
                 .then(data => {
                     console.log(data);
-                    if (data.status === 'ok') {
+                    if (data.errcode === 0) {
                         console.log('注册成功');
                         window.location.href = '/login';
                     } else {
                         let errorMessage = '注册失败，请稍后再试。';
 
-                        switch (data.error) {
-                            case 'Invalid register params':
+                        switch (data.errcode) { 
+                            case 4:
                                 errorMessage = '注册信息有误，请检查后重试。';
                                 break;
-                            case 'Email already registered':
+                            case 5:
                                 errorMessage = '该邮箱地址已被注册。';
-                                break;
-                            case 'Invalid email or password':
-                                errorMessage = '邮箱地址或密码错误。';
                                 break;
                         }
 
