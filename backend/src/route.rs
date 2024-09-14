@@ -26,6 +26,7 @@ use axum::{
         IntoResponse,
     }
 };
+use axum::http::HeaderValue;
 use axum_extra::{
     headers::{Cookie, HeaderMap},
     extract::cookie,
@@ -37,7 +38,6 @@ use crate::sql::{UserDB, UserTable};
 use crate::uuid::UUID;
 
 const FRONTEND_DIR: &'static str = "../../frontend";
-const DISABLE_DYNAMIC_LOADING: bool = false;
 const JWT_EXPIRE_DURATION: i64 = 30;
 
 
@@ -78,8 +78,16 @@ impl TryInto<UserTable> for RegisterParams {
 #[derive(Debug, Copy, Clone)]
 enum ServerResponseError {
     SUCCESS,
+    NullLoginParams,
+    IllegalLoginParams,
+    InvalidLoginParams,
+
     InvalidRegisterParams,
-    InternalErrorError,
+    ExistRegisterEmail,
+
+    InternalTokenGenError,
+    InternalDatabaseError,
+    InternalUnknownError,
 }
 impl ServerResponseError {
     fn code(&self) -> u32 {
@@ -88,8 +96,17 @@ impl ServerResponseError {
     fn message(&self) -> &'static str {
         match self {
             ServerResponseError::SUCCESS => "Success",
-            ServerResponseError::InvalidRegisterParams => "Invalid register params",
-            ServerResponseError::InternalErrorError => "Internal error",
+            // --------------------------------login-------------------------------- //
+            ServerResponseError::   NullLoginParams     =>    "Null email or password",
+            ServerResponseError::IllegalLoginParams     => "Illegal email or password",
+            ServerResponseError::InvalidLoginParams     => "Invalid email or password",
+            // -------------------------------register------------------------------ //
+            ServerResponseError::InvalidRegisterParams  =>   "Invalid register params",
+            ServerResponseError::ExistRegisterEmail     =>      "Email already exists",
+            // -----------------------------general-error--------------------------- //
+            ServerResponseError::InternalTokenGenError  =>            "Internal error",
+            ServerResponseError::InternalDatabaseError  =>            "Internal error",
+            ServerResponseError::InternalUnknownError   =>    "Internal unknown error",
         }
     }
 
@@ -117,8 +134,12 @@ impl ServerResponse {
         Self::new(StatusCode::OK, ServerResponseError::SUCCESS, data)
     }
 
-    fn fine( error: ServerResponseError, data: Option<Value>) -> Self {
+    fn fine(error: ServerResponseError, data: Option<Value>) -> Self {
         Self::new(StatusCode::OK, error, data)
+    }
+
+    fn inner_err(error: ServerResponseError) -> Self {
+        Self::new(StatusCode::INTERNAL_SERVER_ERROR, error, None)
     }
 
     fn new(status: StatusCode, error: ServerResponseError, data: Option<Value>) -> Self {
@@ -134,8 +155,17 @@ impl ServerResponse {
         }
     }
 
-    fn append_header(mut self, (k, v): (HeaderName, &str)) -> Result<Self> {
-        self.headers.append(k, v.parse()?);
+    fn has_header(&self, k: HeaderName) -> bool {
+        self.headers.contains_key(k)
+    }
+
+    fn set_header(mut self, k: HeaderName, v: &str) -> Result<Self> {
+        self.headers.insert(k, v.parse()?);
+        Ok(self)
+    }
+
+    fn set_cookie(mut self, cookie: cookie::Cookie) -> Result<Self> {
+        self.headers.insert(header::SET_COOKIE, cookie.to_string().parse()?);
         Ok(self)
     }
 
@@ -160,15 +190,17 @@ impl Default for ServerResponse {
 impl Serialize for ServerResponse {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where S: serde::Serializer {
-        let mut map = if self.error.is_success() {
-            serializer.serialize_map(Some(2))?
-        } else {
-            let mut map = serializer.serialize_map(Some(3))?;
-            map.serialize_entry("errmsg", self.error.message())?;
+        let len = 2;
+        let mut map = if self.data.is_some() {
+            let mut map = serializer.serialize_map(Some(len+1))?;
+            map.serialize_entry("data", &self.data)?;
             map
+        } else {
+            serializer.serialize_map(Some(len))?
         };
+
+        map.serialize_entry("errmsg", self.error.message())?;
         map.serialize_entry("errcode", &(self.error.code()))?;
-        map.serialize_entry("data", &self.data)?;
         map.end()
     }
 }
@@ -214,6 +246,7 @@ pub async fn new(addr: &str, user_db: UserDB) -> Result<()> {
     let state = AppState::new(user_db);
 
     let app = Router::new()
+        .route("/",         get(get_login))
         .route("/login",    get(get_login))
         .route("/popup.js", get(get_popup))
         .route("/login",    post(post_login))
@@ -233,25 +266,13 @@ pub async fn new(addr: &str, user_db: UserDB) -> Result<()> {
 }
 
 async fn get_popup() -> Html<String> {
-    if DISABLE_DYNAMIC_LOADING {
-        Html(include_str!("../../frontend/popup.js").parse().unwrap())
-    } else {
-        Html(fs_read("../frontend/popup.js").await.unwrap())
-    }
+    Html(fs_read("../frontend/popup.js").await.unwrap())
 }
 async fn get_login() -> Html<String> {
-    if DISABLE_DYNAMIC_LOADING {
-        Html(include_str!("../../frontend/login.html").parse().unwrap())
-    } else {
-        Html(fs_read("../frontend/login.html").await.unwrap())
-    }
+    Html(fs_read("../frontend/login.html").await.unwrap())
 }
 async fn get_register() -> Html<String> {
-    if DISABLE_DYNAMIC_LOADING {
-        Html(include_str!("../../frontend/register.html").parse().unwrap())
-    } else {
-        Html(fs_read("../frontend/register.html").await.unwrap())
-    }
+    Html(fs_read("../frontend/register.html").await.unwrap())
 }
 
 async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> impl IntoResponse {
@@ -268,18 +289,14 @@ async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> 
     let LoginParams{email, password} = params;
 
     if email.is_none() || password.is_none() {
-        // return ret.body(Body::from(json!({"status": "error", "error": "Null email or password"}).to_string())).unwrap();
-        return ServerResponse::fine(
-            ServerResponseError::InternalErrorError,
-            Some(json!({"status": "error", "error": "Null email or password"}))
-        );
+        return ServerResponse::fine(ServerResponseError::NullLoginParams, None);
     }
 
     let email = email.unwrap();
     let password = password.unwrap();
 
     if ! is_valid_email(&email) {
-        return ret.body(Body::from(json!({"status": "error", "error": "Illegal email or password"}).to_string())).unwrap();
+        return ServerResponse::fine(ServerResponseError::IllegalLoginParams, None);
     }
 
     if let Some(id) = check_login(&state.user_db, &email, &password).await {
@@ -293,18 +310,17 @@ async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> 
                 .secure(false)
                 .build();
 
-            return ret.header(header::SET_COOKIE, jwt_cookie.to_string())
-                        .body(Body::from(json!({"status": "ok"}).to_string())).unwrap();
+            return ServerResponse::ok(None).set_cookie(jwt_cookie)
+                .unwrap_or_else(|_e|
+                    ServerResponse::inner_err(ServerResponseError::InternalTokenGenError)
+                )
         };
     } else {
         println!("post(login) user not found");
-        return ret.body(Body::from(json!({"status": "error", "error": "Invalid email or password"}).to_string())).unwrap();
+        return ServerResponse::fine(ServerResponseError::InvalidLoginParams, None);
     }
 
-    Response::builder()
-        .status(StatusCode::INTERNAL_SERVER_ERROR)
-        .header("Content-Type", "application/json")
-        .body(Body::from(json!({"status": "error", "error": "Internal unknown error"}).to_string())).unwrap()
+    ServerResponse::inner_err(ServerResponseError::InternalUnknownError)
 }
 
 async fn check_login(user_db: &UserDB, email: &String, password: &String) -> Option<UUID> {
@@ -318,40 +334,25 @@ async fn check_login(user_db: &UserDB, email: &String, password: &String) -> Opt
 async fn post_register(state: State<AppState>, Json(params): Json<RegisterParams>) -> impl IntoResponse {
     let db = &state.user_db;
     if !params.is_legal() {
-        return (
-            StatusCode::OK,
-            Json(json!({"status": "error", "error": "Invalid register params"}))
-        );
+        return ServerResponse::fine(ServerResponseError::InvalidRegisterParams, None);
     }
     let user = db.select(params.email.as_ref().unwrap()).await;
 
     if let Ok(_) = user {
-        return (
-            StatusCode::OK,
-            Json(json!({"status": "error", "error": "Email already registered"}))
-        );
+        return ServerResponse::fine(ServerResponseError::ExistRegisterEmail, None);
     }
     if let Err(e) = &user {
         if !e.to_string().eq("user not found") {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({"status": "error", "error": "Internal database error"}))
-            );
+            return ServerResponse::inner_err(ServerResponseError::InternalDatabaseError);
         }
     }
     drop(user);
 
     let new_user: UserTable = params.try_into().unwrap();
     if let Err(_) = db.insert(&new_user).await {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"status": "error", "error": "Internal database error"}))
-        )
+        ServerResponse::inner_err(ServerResponseError::InternalDatabaseError)
     } else {
-        (
-            StatusCode::OK,
-            Json(json!({"status": "ok"}))
-        )
+        ServerResponse::ok(None)
     }
 
 }
@@ -365,6 +366,10 @@ async fn test(_jwt: Jwt) -> Result<String, JwtError> {
     Ok("Welcome to the protected area :)".to_string())
 }
 
-async fn handler_404() -> Html<&'static str> {
-    Html::from("<html><body><h1>404 Not Found :(</h1></body></html>")
+async fn handler_404() -> Html<String> {
+    get_login().await
 }
+
+// async fn handler_404() -> Html<&'static str> {
+//     Html::from("<html><body><h1>404 Not Found :(</h1></body></html>")
+// }
