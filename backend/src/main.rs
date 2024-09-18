@@ -1,21 +1,20 @@
 mod email;
-mod route;
 mod room;
 mod sql;
 mod jwt;
 mod uuid;
+mod test;
+mod server;
 
 use std::str::FromStr;
-use tokio::{
-    fs::File,
-    io::{self, AsyncReadExt, AsyncWriteExt},
-};
-use anyhow::{Result, anyhow};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use anyhow::Result;
+use server::{fs_read, route};
 use time::OffsetDateTime;
 use email::Email;
-use crate::route::{fs_read, new};
+
 use crate::sql::{
-    SqlConn, UserDB, UserTable,
+    SqlConn, UserDB,
 };
 
 #[tokio::test]
@@ -35,6 +34,10 @@ async fn main() -> Result<()> {
     let addr = "0.0.0.0:55555";
     let sql_conn = SqlConn::new()?;
     let user_db = UserDB::init("users", sql_conn).await?;
-    new(addr, user_db).await
+
+    let app = route(user_db);
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    println!("listening on {}", listener.local_addr()?);
+    Ok(axum::serve(listener, app).await?)
 }
 
