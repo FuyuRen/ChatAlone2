@@ -11,6 +11,10 @@
         integrity="sha512-OQDNdI5rpnZ0BRhhJc+btbbtnxaj+LdQFeh0V9/igiEPDiWE2fG+ZsXl0JEH+bjXKPJ3zcXqNyP4/F/NegVdZg=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
+        body {
+            background-color: #d0e7e5;
+        }
+        
         #message-container {
             scroll-behavior: smooth;
             overflow-y: scroll;
@@ -123,13 +127,45 @@
                 opacity: 0;
             }
         }
+
+        .room-list-item {
+            transition: background-color 0.3s ease;
+        }
+
+        .room-list-item:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+
+        .room-list-item.active {
+            background-color: #3b82f6;
+            color: white;
+        }
     </style>
 </head>
 
-<body class="bg-gray-50 font-sans">
-    <div class="container mx-auto px-4 py-8 h-screen flex items-center justify-center">
-        <div class="flex w-full max-w-4xl mx-auto space-x-4">
-            <div class="flex-grow bg-white rounded-lg shadow-md">
+<body class="font-sans">
+    <div class="container mx-auto px-4 py-4 h-screen flex items-center justify-center">
+        <div class="flex w-full max-w-8xl mx-auto space-x-4 h-[calc(100vh-2rem)]">
+            <!-- Chat Room List -->
+            <div class="w-56 bg-white rounded-lg shadow-md flex flex-col">
+                <div class="px-4 pt-4 pb-2 border-b">
+                    <h3 class="text-lg font-semibold">聊天室</h3>
+                </div>
+                <div class="overflow-y-auto flex-grow">
+                    <div class="p-2 space-y-1" id="room-list">
+                        <!-- Room list items will be dynamically added here -->
+                    </div>
+                </div>
+                <div class="p-2 border-t">
+                    <button id="new-room-btn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-3 rounded-md transition-colors duration-300 flex items-center justify-center text-sm">
+                        <i class="ri-add-line mr-1"></i>
+                        新建聊天室
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Chat Area -->
+            <div class="flex-grow bg-white rounded-lg shadow-md flex flex-col">
                 <div class="flex flex-row items-center justify-between space-y-0 pb-2 px-6 pt-4 border-b">
                     <div class="flex items-center space-x-4">
                         <div class="rounded-full bg-gray-200 w-10 h-10 flex items-center justify-center">
@@ -139,7 +175,7 @@
                         </div>
                         <div>
                             <h2 class="text-lg font-semibold">ChatAlone</h2>
-                            <p class="text-sm text-gray-500" id="user-name"></p>
+                            <p class="text-sm text-gray-500" id="current-room">General</p>
                         </div>
                     </div>
 
@@ -149,7 +185,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="h-[400px] pr-4 pt-4 overflow-y-auto" id="message-container"></div>
+                <div class="flex-grow overflow-y-auto px-6 py-4" id="message-container"></div>
                 <div class="px-6 py-4 border-t">
                     <form id="message-form" class="flex w-full items-center space-x-2">
                         <input type="text" id="message-input" placeholder="输入你的消息..."
@@ -157,7 +193,7 @@
                         <button type="submit"
                             class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md">
                             <i class="ri-send-plane-fill"></i> 发送
-                            </button>
+                        </button>
                         <button type="button" id="image-upload"
                             class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-md">
                             <i class="ri-image-fill"></i>
@@ -165,12 +201,14 @@
                     </form>
                 </div>
             </div>
-            <div class="w-64 bg-white rounded-lg shadow-md flex flex-col">
-                <div class="px-6 pt-4">
+
+            <!-- User List -->
+            <div class="w-56 bg-white rounded-lg shadow-md flex flex-col">
+                <div class="px-4 pt-4 pb-2 border-b">
                     <h3 class="text-lg font-semibold">用户列表</h3>
                 </div>
-                <div class="overflow-y-auto flex-grow h-[400px]">
-                    <div class="p-6 space-y-4">
+                <div class="overflow-y-auto flex-grow">
+                    <div class="p-4 space-y-2">
                         <div id="user-list"></div>
                     </div>
                 </div>
@@ -199,11 +237,15 @@
         const modalImage = document.getElementById('modalImage');
         const userName = document.getElementById('user-name');
         const imageUploadButton = document.getElementById('image-upload');
+        const roomList = document.getElementById('room-list');
+        const currentRoom = document.getElementById('current-room');
 
         let users = {
             online: [],
             offline: []
         };
+
+        let rooms = ['日常', '聊天', '我的世界', '开除老板'];
 
         messageForm.addEventListener('submit', (event) => {
             event.preventDefault();
@@ -287,6 +329,25 @@
             });
         }
 
+        function createRoomElement(roomName, isActive = false) {
+            const roomElement = document.createElement('button');
+            roomElement.className = `w-full text-left px-4 py-2 rounded-md transition-colors room-list-item ${isActive ? 'active' : ''}`;
+            roomElement.textContent = `# ${roomName}`;
+            roomElement.onclick = () => switchRoom(roomName);
+            return roomElement;
+        }
+
+        function switchRoom(roomName) {
+            currentRoom.textContent = roomName;
+            document.querySelectorAll('.room-list-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.textContent.slice(2) === roomName) {
+                    item.classList.add('active');
+                }
+            });
+            // TODO: Switch room logic
+        }
+
         function renderUserList() {
             userListContainer.innerHTML = '';
 
@@ -322,7 +383,7 @@
         }
 
         function appendJoinLeaveMessage(user, isJoining) {
-            const message = isJoining ? `${user} 进入了聊天室` : `${user} 离开了聊天室`;
+            const message = isJoining ? `${user} 进入了房间` : `${user} 离开了房间`;
             const messageElement = `
                 <div class="flex mb-4 justify-center">
                     <div class="bg-gray-200 rounded-lg px-2 py-1 text-[12px] text-gray-500">
@@ -404,6 +465,8 @@
             reader.readAsDataURL(blob);
         }
 
+        
+
         imageUploadButton.addEventListener('click', () => {
             const input = document.createElement('input');
             input.type = 'file';
@@ -415,6 +478,43 @@
             input.click();
         });
 
+        document.getElementById('new-room-btn').onclick = () => {
+            let newRoomName = "";
+            let newRoomPopup = createUniversalPopup({
+                title: '新建房间',
+                content: `
+                    <input type="text" id="new-room-input" placeholder="输入房间名称" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="flex justify-end mt-4 space-x-2">
+                        <button id="popup-cancel-room" class="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-200">取消</button>
+                        <button id="popup-create-room" class="px-4 py-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">创建</button>
+                    </div>
+                `,
+                onClose: () => {
+                    console.log('Popup closed');
+                }
+            });
+
+            newRoomPopup.show();
+
+            const cancelRoomButton = document.getElementById('popup-cancel-room');
+            cancelRoomButton.addEventListener('click', () => {
+                newRoomPopup.close();
+            });
+
+            const createRoomButton = document.getElementById('popup-create-room');
+            createRoomButton.addEventListener('click', () => {
+                newRoomName = document.getElementById('new-room-input').value;
+                if (newRoomName && !rooms.includes(newRoomName)) {
+                    rooms.push(newRoomName);
+                    roomList.appendChild(createRoomElement(newRoomName));
+                    switchRoom(newRoomName);
+                    newRoomPopup.close();
+                } else {
+                    // TODO: Show error message for invalid or duplicate room name
+                }
+            });
+        };
+
         function UploadImage(blob) {
             //TODO: 上传图片
             console.log('上传图片:', blob);
@@ -422,13 +522,17 @@
         }
 
         window.onload = () => {
+            // 初始化房间列表
+            rooms.forEach((room, index) => {
+                roomList.appendChild(createRoomElement(room, index === 0));
+            });
+            currentRoom.textContent = rooms[0];
+            
             appendJoinLeaveMessage('你', true);
             appendJoinLeaveMessage('阿姨', true);
             appendMessage('阿姨', '😡');
             appendMessage('阿姨', '😡');
             appendImageMessage('阿姨', 'https://fakeimg.pl/1200x600/000000/');
-            //TODO: 获取用户名并显示
-            userName.textContent = `欢迎回来，${myName}`;
             //TODO: 获取用户列表并显示
             renderUserList();
         };
