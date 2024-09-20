@@ -1,6 +1,7 @@
 mod login;
 mod register;
 mod public;
+mod ws;
 
 use std::fmt::Display;
 
