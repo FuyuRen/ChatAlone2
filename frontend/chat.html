@@ -14,7 +14,7 @@
         body {
             background-color: #d0e7e5;
         }
-        
+
         #message-container {
             scroll-behavior: smooth;
             overflow-y: scroll;
@@ -140,12 +140,17 @@
             background-color: #3b82f6;
             color: white;
         }
+
+        .select-none {
+            -webkit-user-select: none;
+            user-select: none;
+        }
     </style>
 </head>
 
 <body class="font-sans">
-    <div class="container mx-auto px-4 py-4 h-screen flex items-center justify-center">
-        <div class="flex w-full max-w-8xl mx-auto space-x-4 h-[calc(100vh-2rem)]">
+    <div class="mx-auto px-4 py-4 h-screen flex items-center justify-center">
+        <div class="flex w-full mx-auto space-x-4 h-[calc(100vh-2rem)]">
             <!-- Chat Room List -->
             <div class="w-56 bg-white rounded-lg shadow-md flex flex-col">
                 <div class="px-4 pt-4 pb-2 border-b">
@@ -157,12 +162,14 @@
                     </div>
                 </div>
                 <div class="p-2 border-t">
-                    <button id="new-room-btn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-3 rounded-md transition-colors duration-300 flex items-center justify-center text-sm">
+                    <button id="new-room-btn"
+                        class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-3 rounded-md transition-colors duration-300 flex items-center justify-center text-sm">
                         <i class="ri-add-line mr-1"></i>
                         新建聊天室
                     </button>
                 </div>
             </div>
+            <!-- Chat Room List End -->
 
             <!-- Main Chat Area -->
             <div class="flex-grow bg-white rounded-lg shadow-md flex flex-col">
@@ -189,11 +196,16 @@
                 <div class="px-6 py-4 border-t">
                     <form id="message-form" class="flex w-full items-center space-x-2">
                         <input type="text" id="message-input" placeholder="输入你的消息..."
-                            class="flex-1 border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            class="flex-1 border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            autocomplete="off">
                         <button type="submit"
                             class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md">
                             <i class="ri-send-plane-fill"></i> 发送
                         </button>
+                        <label id="file-upload"
+                            class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-md cursor-pointer">
+                            <i class="ri-upload-2-fill"></i> 上传文件
+                        </label>
                         <button type="button" id="image-upload"
                             class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-md">
                             <i class="ri-image-fill"></i>
@@ -201,6 +213,7 @@
                     </form>
                 </div>
             </div>
+            <!-- Main Chat Area End -->
 
             <!-- User List -->
             <div class="w-56 bg-white rounded-lg shadow-md flex flex-col">
@@ -213,9 +226,11 @@
                     </div>
                 </div>
             </div>
+            <!-- User List End -->
         </div>
     </div>
 
+    <!-- Image Modal -->
     <div id="imageModal" class="modal" onclick="closeModal()">
         <div class="modal-content" onclick="event.stopPropagation();">
             <span class="close" onclick="closeModal()">
@@ -224,8 +239,12 @@
             <img id="modalImage" src="" alt="放大图片">
         </div>
     </div>
+    <!-- Image Modal End -->
 
     <script>
+        /* -------------------------------------------------------------------------- */
+        /*                                全局变量                                    */
+        /* -------------------------------------------------------------------------- */
         const myName = 'FuyuRen';
 
         const body = document.querySelector('body');
@@ -235,64 +254,126 @@
         const userListContainer = document.getElementById('user-list');
         const imageModal = document.getElementById('imageModal');
         const modalImage = document.getElementById('modalImage');
-        const userName = document.getElementById('user-name');
         const imageUploadButton = document.getElementById('image-upload');
         const roomList = document.getElementById('room-list');
         const currentRoom = document.getElementById('current-room');
 
         let users = {
-            online: [],
-            offline: []
+            online: [
+                { name: 'FuyuRen', status: '正在玩 jb', color: '255, 234, 34' },
+                { name: 'Alice', status: '正在玩 Minecraft' },
+                { name: 'Bob', status: '正在玩 Fortnite' },
+                { name: 'Charlie', status: '' }
+            ],
+            offline: [
+                { name: 'David' },
+                { name: 'Eve' },
+                { name: 'Fuck' },
+                { name: 'Google' },
+                { name: 'Hello World!' }
+            ]
         };
 
         let rooms = ['日常', '聊天', '我的世界', '开除老板'];
 
-        messageForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-            const message = messageInput.value.trim();
-            if (message) {
-                sendMessage(message);
-                messageInput.value = '';
-            }
-        });
-
-        function sendMessage(message) {
-            appendMessage('你', message);
-            messageInput.focus();
+        /* -------------------------------------------------------------------------- */
+        /*                                 工具类函数                                 */
+        /* -------------------------------------------------------------------------- */
+        function scrollToBottom() {
+            messageContainer.scrollTo({
+                top: messageContainer.scrollHeight,
+                behavior: 'smooth'
+            });
         }
 
-        function appendMessage(user, message) {
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+            else return (bytes / 1073741824).toFixed(1) + ' GB';
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /*                              消息处理函数                                  */
+        /* -------------------------------------------------------------------------- */
+        function createMessageElement(user, content, messageType, extraData = {}) {
             const alignment = user === '你' ? 'justify-end' : 'justify-start';
-            const bgColorClass = user === '你' ? 'bg-blue-500 text-white user-message' : 'bg-gray-100 other-message';
-            const messageBubbleStyle = user === '你' ? 'mr-8' : 'ml-10';
+            const bgColorClass = user === '你' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800';
+            const timestampColorClass = user === '你' ? 'text-blue-200' : 'text-gray-500'; 
+            const avatarPosition = user === '你' ? 'order-2 ml-3' : 'order-1 mr-3';
+            const messagePosition = user === '你' ? 'order-1' : 'order-2';
 
-            const isSingleEmoji = /^\p{Extended_Pictographic}$/u.test(message.trim());
+            let messageContent = '';
 
-            let messageContent = `<p class="font-semibold text-sm mb-1">${user}</p>`;
-
-            if (isSingleEmoji) {
-                messageContent += `<p class="text-6xl">${message}</p>`;
-            } else {
-                messageContent += `<p class="text-sm">${message}</p>`;
+            const timestampElement = `
+                <span class="text-xs ${timestampColorClass} ml-2 select-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-in-out" style="margin-top: 1.5px;">
+                    ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+            `;
+            switch (messageType) {
+                case 'text':
+                    const isSingleEmoji = /^\p{Extended_Pictographic}$/u.test(content.trim());
+                    messageContent = isSingleEmoji
+                        ? `<p class="text-4xl">${content}</p>`
+                        : `<p class="text-sm">${content}</p>`;
+                    break;
+                case 'image':
+                    messageContent = `
+                        <div class="relative group">
+                            <img src="${extraData.imageUrl}" alt="用户图片" style="max-width: 100%; max-height: 200px;" class="rounded-lg cursor-pointer" onclick="openModal('${extraData.imageUrl}')">
+                            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black bg-opacity-50 rounded-lg">
+                                <button class="bg-white text-gray-800 font-bold py-2 px-4 rounded" onclick="openModal('${extraData.imageUrl}')">
+                                <i class="ri-fullscreen-line mr-2"></i>查看全图
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                case 'file':
+                    const fileActionIcon = user === '你'
+                        ?  `<div class="w-5 h-5 rounded-full border-2 border-t-transparent ${extraData.isUploading ? 'animate-spin' : 'border-none'}">
+                                ${extraData.isUploading ? '' : '<i class="ri-check-line text-green-500"></i>'}
+                            </div>`
+                        :  `<button class="download-btn text-gray-800 font-bold py-1 px-2 rounded text-sm" onclick="downloadFile(this, '${extraData.fileUrl}')">
+                                <i class="ri-download-line"></i>
+                            </button>`;
+                    messageContent = `
+                        <div class="flex items-center space-x-3">
+                            <i class="ri-file-line text-2xl"></i>
+                            <div class="flex-grow">
+                                <p class="text-sm font-medium">${content}</p>
+                                <p class="text-xs opacity-75">${extraData.fileSize}</p>
+                            </div>
+                            ${fileActionIcon}
+                        </div>
+                    `;
+                    break;
+                default:
+                    messageContent = `<p>不支持的消息类型</p>`;
             }
 
-            const messageElement = `
+            return `
                 <div class="flex mb-4 ${alignment}">
-                    <div class="${bgColorClass} rounded-lg p-3 max-w-[70%] message-bubble ${messageBubbleStyle}"> 
-                        ${messageContent} 
+                    <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center ${avatarPosition}">
+                        <span class="text-sm font-bold select-none">${user[0].toUpperCase()}</span>
+                    </div>
+                    <div class="${bgColorClass} rounded-lg p-3 max-w-[70%] relative ${messagePosition} group">
+                        <div class="flex justify-between items-start mb-1">
+                        <p class="font-semibold text-sm">${user}</p>
+                        ${messageType !== 'join-leave' ? timestampElement : ''} </div>
+                        ${messageContent}
                     </div>
                 </div>
             `;
+        }
 
+        function appendMessage(user, message) {
+            const messageElement = createMessageElement(user, message, 'text');
             messageContainer.innerHTML += messageElement;
             scrollToBottom();
         }
 
         function appendImageMessage(user, imageUrl) {
-            const alignment = user === '你' ? 'justify-end' : 'justify-start';
-            const bgColorClass = user === '你' ? 'bg-blue-500 text-white user-message' : 'bg-gray-100 other-message';
-            const messageBubbleStyle = user === '你' ? 'mr-8' : 'ml-10';
-
             const img = new Image();
             img.onload = function () {
                 let width = img.width;
@@ -306,27 +387,121 @@
                         width = Math.round(height * (img.width / img.height));
                     }
                 }
-                const messageElement = `
-                    <div class="flex mb-4 ${alignment}">
-                        <div class="${bgColorClass} rounded-lg p-3 max-w-[70%] message-bubble ${messageBubbleStyle}"> 
-                            <p class="font-semibold text-sm mb-1">${user}</p>
-                            <img src="${imageUrl}" alt="用户图片" style="max-width: 350px; max-height: 200px; width: ${width}px; height: ${height}px;" class="rounded-lg cursor-pointer" onclick="openModal('${imageUrl}')">
-                        </div>
-                    </div>
-                `;
+                const messageElement = createMessageElement(user, '', 'image', { imageUrl, width, height });
                 messageContainer.innerHTML += messageElement;
                 scrollToBottom();
             }
             img.src = imageUrl;
-
         }
 
+        function appendFileMessage(user, fileName, fileSize, fileUrl, isUploading = true) {
+            const messageElement = createMessageElement(user, fileName, 'file', { fileSize, fileUrl, isUploading });
+            messageContainer.innerHTML += messageElement;
+            scrollToBottom();
 
-        function scrollToBottom() {
-            messageContainer.scrollTo({
-                top: messageContainer.scrollHeight,
-                behavior: 'smooth'
+            if (isUploading && user === '你') {
+                setTimeout(() => {
+                    const loadingIcon = messageContainer.querySelector('.animate-spin:last-of-type');
+                    if (loadingIcon) {
+                        loadingIcon.classList.remove('animate-spin', 'border-t-transparent');
+                        loadingIcon.classList.add('border-none');
+                        loadingIcon.innerHTML = '<i class="ri-check-line text-green-500"></i>';
+                    }
+                }, 3000);
+            }
+        }
+
+        function appendJoinLeaveMessage(user, isJoining) {
+            const message = isJoining ? `${user} 进入了房间` : `${user} 离开了房间`;
+            const messageElement = `
+                <div class="flex mb-4 justify-center">
+                <div class="bg-gray-200 rounded-lg px-2 py-1 text-[12px] text-gray-500">
+                    <p>${message}</p>
+                </div>
+                </div>
+            `;
+            messageContainer.innerHTML += messageElement;
+            scrollToBottom();
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /*                              用户界面交互函数                              */
+        /* -------------------------------------------------------------------------- */
+        function sendMessage(message) {
+            appendMessage('你', message);
+            messageInput.focus();
+        }
+
+        function openModal(imageSrc) {
+            modalImage.src = imageSrc;
+            imageModal.style.display = "block";
+            setTimeout(() => {
+                imageModal.classList.add('fade-in');
+            }, 10);
+        }
+
+        function closeModal() {
+            imageModal.classList.add('fade-out');
+            setTimeout(() => {
+                imageModal.style.display = "none";
+                imageModal.classList.remove('fade-out');
+                imageModal.classList.remove('fade-in');
+                modalImage.src = '';
+            }, 300);
+        }
+
+        function downloadFile(button, fileUrl) {
+            const loadingIcon = `<div class="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"></div>`;
+            button.innerHTML = loadingIcon;
+
+            // TODO: Implement file download logic
+            setTimeout(() => {
+                const anchor = document.createElement('a');
+                anchor.href = fileUrl;
+                anchor.download = fileUrl.split('/').pop();
+                anchor.style.display = 'none';
+                document.body.appendChild(anchor);
+
+                anchor.click();
+
+                document.body.removeChild(anchor);
+
+                button.innerHTML = `<i class="ri-download-line text-2xl"></i>`;
+            }, 1000);
+        }
+
+        function renderUserList() {
+            userListContainer.innerHTML = '';
+
+            let onlineListHTML = '<h4 class="text-sm font-semibold mb-2">在线</h4>';
+            users.online.forEach(user => {
+                const isSpecialUser = user.color || false;
+                const specialClass = isSpecialUser ? 'user-list-item--special' : '';
+
+                onlineListHTML += `
+            <div class="flex items-center mb-2 user-list-item ${specialClass}" style="${isSpecialUser ? `--breathing-color: ${user.color};` : ''}"> 
+                <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                <div>
+                    <p class="font-medium">${user.name}</p>
+                    ${user.status ? `<p class="text-sm text-gray-500">${user.status}</p>` : ''}
+                </div>
+            </div>
+        `;
             });
+            userListContainer.innerHTML += onlineListHTML;
+
+            let offlineListHTML = '<h4 class="text-sm font-semibold mb-2">离线</h4>';
+            users.offline.forEach(user => {
+                offlineListHTML += `
+            <div class="flex items-center mb-2 user-list-item">
+                <span class="w-2 h-2 bg-gray-300 rounded-full mr-2"></span>
+                <div>
+                    <p class="font-medium">${user.name}</p>
+                </div>
+            </div>
+        `;
+            });
+            userListContainer.innerHTML += offlineListHTML;
         }
 
         function createRoomElement(roomName, isActive = false) {
@@ -348,89 +523,9 @@
             // TODO: Switch room logic
         }
 
-        function renderUserList() {
-            userListContainer.innerHTML = '';
-
-            let onlineListHTML = '<h4 class="text-sm font-semibold mb-2">在线</h4>';
-            users.online.forEach(user => {
-                const isSpecialUser = user.color || false;
-                const specialClass = isSpecialUser ? 'user-list-item--special' : '';
-
-                onlineListHTML += `
-                    <div class="flex items-center mb-2 user-list-item ${specialClass}" style="${isSpecialUser ? `--breathing-color: ${user.color};` : ''}"> 
-                        <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                        <div>
-                            <p class="font-medium">${user.name}</p>
-                            ${user.status ? `<p class="text-sm text-gray-500">${user.status}</p>` : ''}
-                        </div>
-                    </div>
-                `;
-            });
-            userListContainer.innerHTML += onlineListHTML;
-
-            let offlineListHTML = '<h4 class="text-sm font-semibold mb-2">离线</h4>';
-            users.offline.forEach(user => {
-                offlineListHTML += `
-                    <div class="flex items-center mb-2 user-list-item">
-                        <span class="w-2 h-2 bg-gray-300 rounded-full mr-2"></span>
-                        <div>
-                            <p class="font-medium">${user.name}</p>
-                        </div>
-                    </div>
-                `;
-            });
-            userListContainer.innerHTML += offlineListHTML;
-        }
-
-        function appendJoinLeaveMessage(user, isJoining) {
-            const message = isJoining ? `${user} 进入了房间` : `${user} 离开了房间`;
-            const messageElement = `
-                <div class="flex mb-4 justify-center">
-                    <div class="bg-gray-200 rounded-lg px-2 py-1 text-[12px] text-gray-500">
-                        <p>${message}</p>
-                    </div>
-                </div>
-            `;
-            messageContainer.innerHTML += messageElement;
-            scrollToBottom();
-        }
-
-
-        function openModal(imageSrc) {
-            modalImage.src = imageSrc;
-            imageModal.style.display = "block";
-            setTimeout(() => {
-                imageModal.classList.add('fade-in');
-            }, 10);
-        }
-
-        function closeModal() {
-            imageModal.classList.add('fade-out');
-            setTimeout(() => {
-                imageModal.style.display = "none";
-                imageModal.classList.remove('fade-out');
-                imageModal.classList.remove('fade-in');
-                modalImage.src = '';
-            }, 300);
-        }
-
-        body.addEventListener("paste", (event) => {
-            const items = event.clipboardData?.items;
-
-            if (items) {
-                for (let i = 0; i < items.length; i++) {
-                    if (items[i].type.indexOf('image') !== -1) {
-                        event.preventDefault(); 
-                        const blob = items[i].getAsFile();
-                        showUploadImageModal(blob);
-                        break;
-                    }
-                }
-            } else {
-                console.warn("Clipboard data is not available in this context.");
-            }
-        });
-
+        /* -------------------------------------------------------------------------- */
+        /*                                上传功能函数                                */
+        /* -------------------------------------------------------------------------- */
         function showUploadImageModal(blob) {
             const reader = new FileReader();
             reader.onload = (event) => {
@@ -438,12 +533,12 @@
                 let ImgUploadPopup = createUniversalPopup({
                     title: '上传图片',
                     content: `
-                        <img src="${imgSrc}" alt="待上传图片" class="max-h-[300px] rounded-md">
-                        <div class="flex justify-end mt-4 space-x-2">
-                            <button id="popup-cancel-upload" class="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-200">取消</button>
-                            <button id="popup-confirm-upload" class="px-4 py-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">确认上传</button>
-                        </div>
-                    `,
+                <img src="${imgSrc}" alt="待上传图片" class="max-h-[300px] rounded-md">
+                <div class="flex justify-end mt-4 space-x-2">
+                    <button id="popup-cancel-upload" class="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-200">取消</button>
+                    <button id="popup-confirm-upload" class="px-4 py-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">确认上传</button>
+                </div>
+            `,
                     onClose: () => {
                         console.log('Popup closed');
                     }
@@ -465,7 +560,45 @@
             reader.readAsDataURL(blob);
         }
 
-        
+        function UploadImage(blob) {
+            //TODO: 上传图片
+            console.log('上传图片:', blob);
+            appendImageMessage('你', URL.createObjectURL(blob));
+        }
+
+        function UploadFile(file) {
+            console.log('上传文件:', file);
+            appendFileMessage('你', file.name, formatFileSize(file.size), true);
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /*                                事件监听器                                  */
+        /* -------------------------------------------------------------------------- */
+        messageForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const message = messageInput.value.trim();
+            if (message) {
+                sendMessage(message);
+                messageInput.value = '';
+            }
+        });
+
+        body.addEventListener("paste", (event) => {
+            const items = event.clipboardData?.items;
+
+            if (items) {
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        event.preventDefault();
+                        const blob = items[i].getAsFile();
+                        showUploadImageModal(blob);
+                        break;
+                    }
+                }
+            } else {
+                console.warn("Clipboard data is not available in this context.");
+            }
+        });
 
         imageUploadButton.addEventListener('click', () => {
             const input = document.createElement('input');
@@ -478,17 +611,32 @@
             input.click();
         });
 
+        document.getElementById('file-upload').onclick = () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt';
+            input.onchange = (event) => {
+                const file = event.target.files[0];
+                if (file.type.startsWith('image/')) {
+                    showUploadImageModal(file);
+                } else {
+                    UploadFile(file);
+                }
+            }
+            input.click();
+        };
+
         document.getElementById('new-room-btn').onclick = () => {
             let newRoomName = "";
             let newRoomPopup = createUniversalPopup({
                 title: '新建房间',
                 content: `
-                    <input type="text" id="new-room-input" placeholder="输入房间名称" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <div class="flex justify-end mt-4 space-x-2">
-                        <button id="popup-cancel-room" class="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-200">取消</button>
-                        <button id="popup-create-room" class="px-4 py-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">创建</button>
-                    </div>
-                `,
+            <input type="text" id="new-room-input" placeholder="输入房间名称" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="flex justify-end mt-4 space-x-2">
+                <button id="popup-cancel-room" class="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-200">取消</button>
+                <button id="popup-create-room" class="px-4 py-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">创建</button>
+            </div>
+        `,
                 onClose: () => {
                     console.log('Popup closed');
                 }
@@ -515,42 +663,24 @@
             });
         };
 
-        function UploadImage(blob) {
-            //TODO: 上传图片
-            console.log('上传图片:', blob);
-            appendImageMessage('你', URL.createObjectURL(blob));
-        }
-
+        /* -------------------------------------------------------------------------- */
+        /*                                 页面初始化                                 */
+        /* -------------------------------------------------------------------------- */
         window.onload = () => {
             // 初始化房间列表
             rooms.forEach((room, index) => {
                 roomList.appendChild(createRoomElement(room, index === 0));
             });
             currentRoom.textContent = rooms[0];
-            
+            renderUserList();
+
             appendJoinLeaveMessage('你', true);
             appendJoinLeaveMessage('阿姨', true);
-            appendMessage('阿姨', '😡');
+            appendMessage('阿姨', '1');
             appendMessage('阿姨', '😡');
             appendImageMessage('阿姨', 'https://fakeimg.pl/1200x600/000000/');
-            //TODO: 获取用户列表并显示
-            renderUserList();
-        };
+            appendFileMessage('阿姨', '开除老板计划书.docx', '1.2 MB', 'C:/Users/戴尔/Desktop/O(∩_∩)O/(●ˇ∀ˇ●)/1.txt', false);
 
-        users = {
-            online: [
-                { name: 'FuyuRen', status: '正在玩 jb', color: '255, 234, 34' },
-                { name: 'Alice', status: '正在玩 Minecraft' },
-                { name: 'Bob', status: '正在玩 Fortnite' },
-                { name: 'Charlie', status: '' }
-            ],
-            offline: [
-                { name: 'David' },
-                { name: 'Eve' },
-                { name: 'Fuck' },
-                { name: 'Google' },
-                { name: 'Hello World!' }
-            ]
         };
     </script>
 </body>
