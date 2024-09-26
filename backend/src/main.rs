@@ -3,7 +3,6 @@ mod room;
 mod sql;
 mod jwt;
 mod uuid;
-mod test;
 mod server;
 
 use std::str::FromStr;
