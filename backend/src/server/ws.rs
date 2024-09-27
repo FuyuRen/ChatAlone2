@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{
@@ -30,31 +31,45 @@ use crate::room::{ChatRoom, RoomEvents};
 use crate::server::AppState;
 use crate::uuid::UUID;
 
-
+#[derive(Clone)]
 struct WsSharedState {
-    rooms: DashMap<UUID, ChatRoom>, // key: room_id, value: ChatRoom
-    users: DashMap<UUID, UUID>, // key: user_id, value: room_id
+    rooms: Arc<DashMap<UUID, ChatRoom>>, // key: room_id, value: ChatRoom
+    users: Arc<DashMap<UUID, UUID>>, // key: user_id, value: room_id
 }
 
 impl WsSharedState {
     fn new() -> Self {
         Self {
-            rooms: DashMap::new(),
-            users: DashMap::new(),
+            rooms: Arc::new(DashMap::new()),
+            users: Arc::new(DashMap::new()),
         }
     }
 }
 
 impl Default for WsSharedState {
     fn default() -> Self {
-        Self::new()
+        let room_id = UUID::from(1919810_i64);
+        let user_1 = UUID::from(114_i64);
+        let user_2 = UUID::from(514_i64);
+
+        println!("room_id: {}, user_1: {}, user_2: {}", room_id, user_1, user_2);
+
+        let rooms = DashMap::new();
+        rooms.insert(room_id.clone(), ChatRoom::default());
+        let users = DashMap::new();
+        users.insert(user_1, room_id.clone());
+        users.insert(user_2, room_id        );
+        WsSharedState {
+            rooms: Arc::new(rooms),
+            users: Arc::new(users)
+        }
     }
 }
 
-pub(crate) fn route(app_state: AppState) -> Router<AppState> {
+pub(crate) fn route() -> Router<AppState> {
     Router::new()
         .route("/ws", get(handler))
-        .with_state(app_state)
+        .with_state(WsSharedState::default())
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -80,19 +95,20 @@ async fn handler(
     ws: WebSocketUpgrade,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Query(query): Query<WsConnQuery>,
-    State(state): State<AppState>,
     State(ws_state): State<WsSharedState>,
 ) -> Response {
 
-    println!("{} connected", addr);
+    println!("{} connected.", addr);
 
-    let res = query.authorize();
-    if let Err(e) = res { return e.into_response() }
+    match query.authorize() {
+        Err(e) => e.into_response(),
+        Ok(uuid) => ws.on_upgrade(move |socket| ws_handler(socket, uuid, ws_state))
+    }
 
-    ws.on_upgrade(move |socket| ws_handler(socket, res.unwrap(), ws_state))
 }
 
 async fn ws_handler(mut socket: WebSocket, user_id: UUID, state: WsSharedState) -> () {
+    println!("user_id: {}.", user_id);
     let (mut sender, mut receiver) = socket.split();
 
     if let Err(e) = sender.send(Message::Text("Hello!!!".to_string())).await {
@@ -100,34 +116,48 @@ async fn ws_handler(mut socket: WebSocket, user_id: UUID, state: WsSharedState) 
         return;
     }
 
-    let mut vec = vec![];
-
     let room_id = state.users.get(&user_id).unwrap().clone();
     let room = state.rooms.get(&room_id).unwrap();
 
+    let tx = room.get_sender();
     let mut rx = room.subscribe();
 
 
-    let recv_task = async move {
+    let mut recv_task = tokio::spawn(async move {
         loop {
             match receiver.next().await {
-                Some(Ok(Message::Text(msg))) => vec.push(msg),
-                _ => return
+                Some(Ok(Message::Text(msg))) => {
+                    if let Err(e) = tx.send(RoomEvents::Message(msg)) {
+                        return Err(e);
+                    }
+                },
+                _ => return Ok(())
             }
         }
-    };
+    });
 
-    let send_task = async move {
+    let mut send_task = tokio::spawn(async move {
         loop {
-            if let RoomEvents::Message(msg) = rx.recv().await {
-                sender.send(Message::Text(msg)).await.unwrap();
+            match rx.recv().await {
+                Ok(RoomEvents::Message(msg)) => {
+                    if let Err(e) = sender.send(Message::Text(msg)).await {
+                        return Err(e);
+                    }
+                },
+                _ => return Ok(())
             }
         }
-    };
+    });
 
     tokio::select! {
-        _ = recv_task => send_task.abort(),
-        _ = send_task => {},
+        res = &mut recv_task => {
+            println!("recv task finished: {:?}", res);
+            send_task.abort()
+        },
+        res = &mut send_task => {
+            println!("send task finished: {:?}", res);
+            recv_task.abort()
+        },
     }
 
     // async move {

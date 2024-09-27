@@ -1,6 +1,6 @@
 use dashmap::DashMap;
 use tokio::sync::broadcast;
-use tokio::sync::broadcast::Receiver;
+use tokio::sync::broadcast::{Receiver, Sender};
 use crate::uuid::UUID;
 
 #[derive(Debug, Clone)]
@@ -14,7 +14,7 @@ pub struct ChatRoom {
     room_id:        UUID,
     room_title:     String,
     notifier:       Receiver<RoomEvents>,
-    sender:         broadcast::Sender<RoomEvents>,
+    sender:         Sender<RoomEvents>,
 }
 
 impl ChatRoom {
@@ -34,5 +34,15 @@ impl ChatRoom {
 
     pub fn subscribe(&self) -> Receiver<RoomEvents> {
         self.sender.subscribe()
+    }
+
+    pub fn get_sender(&self) -> Sender<RoomEvents> {
+        self.sender.clone()
+    }
+}
+
+impl Default for ChatRoom {
+    fn default() -> Self {
+        Self::start(UUID::from(1919810_i64), "test".to_string())
     }
 }

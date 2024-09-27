@@ -66,7 +66,7 @@ impl JwtPayload {
     }
 
     pub fn uuid(&self) -> UUID {
-        UUID::from(self.user_id as u64)
+        UUID::from(self.user_id as i64)
     }
 }
 

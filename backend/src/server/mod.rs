@@ -2,7 +2,6 @@ mod login;
 mod register;
 mod public;
 mod ws;
-mod ws_test;
 mod tools;
 
 use std::fmt::Display;
@@ -219,7 +218,7 @@ pub fn route(user_db: UserDB) -> Router {
     let login = login::route(state.clone());
     let public = public::route(state.clone());
     let register = register::route(state.clone());
-    let websocket = ws::route(state.clone());
+    let websocket = ws::route();
     let tools = tools::route(state.clone());
 
     Router::new()

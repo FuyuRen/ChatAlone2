@@ -65,15 +65,13 @@ async fn post_register(state: State<AppState>, Json(params): Json<RegisterParams
     }
     let user = db.select(params.email.as_ref().unwrap()).await;
 
-    if let Ok(_) = user {
-        return ServerResponse::fine(ServerResponseError::ExistRegisterEmail, None);
-    }
     if let Err(e) = &user {
         if !e.to_string().eq("user not found") {
             return ServerResponse::inner_err(ServerResponseError::InternalDatabaseError);
         }
+    } else {
+        return ServerResponse::fine(ServerResponseError::ExistRegisterEmail, None);
     }
-    drop(user);
 
     let new_user: UserTable = params.try_into().unwrap();
     if let Err(_) = db.insert(&new_user).await {
