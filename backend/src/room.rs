@@ -1,5 +1,6 @@
 use dashmap::DashMap;
 use tokio::sync::broadcast;
+use tokio::sync::broadcast::Receiver;
 use crate::uuid::UUID;
 
 #[derive(Debug, Clone)]
@@ -12,9 +13,8 @@ pub enum RoomEvents {
 pub struct ChatRoom {
     room_id:        UUID,
     room_title:     String,
-    notifier:       broadcast::Receiver<RoomEvents>,
+    notifier:       Receiver<RoomEvents>,
     sender:         broadcast::Sender<RoomEvents>,
-    subscribers:    DashMap<UUID, broadcast::Sender<RoomEvents>>
 }
 
 impl ChatRoom {
@@ -25,11 +25,14 @@ impl ChatRoom {
             room_title: name,
             notifier: rx,
             sender: tx,
-            subscribers: DashMap::new()
         }
     }
 
     fn add_user(&mut self, user_id: UUID) -> anyhow::Result<()> {
+        Ok(())
+    }
 
+    pub fn subscribe(&self) -> Receiver<RoomEvents> {
+        self.sender.subscribe()
     }
 }

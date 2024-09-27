@@ -2,6 +2,8 @@ mod login;
 mod register;
 mod public;
 mod ws;
+mod ws_test;
+mod tools;
 
 use std::fmt::Display;
 
@@ -217,15 +219,18 @@ pub fn route(user_db: UserDB) -> Router {
     let login = login::route(state.clone());
     let public = public::route(state.clone());
     let register = register::route(state.clone());
+    let websocket = ws::route(state.clone());
+    let tools = tools::route(state.clone());
 
     Router::new()
         .nest("/", login)
         .nest("/", register)
         .nest("/", public)
+        .nest("/", websocket)
+        .nest("/tools", tools)
         .route("/chat", get(chat))
         .fallback(handler_404)
         .with_state(state)
-
 
 }
 

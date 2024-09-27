@@ -20,7 +20,7 @@ regex = "1.10.6"
 nanoid = "0.4.0"
 
 axum = { version = "0.7.5", features = ["tokio", "ws"] }
-axum-extra = { version = "0.9.3", features = ["form", "typed-header", "cookie"] }
+axum-extra = { version = "0.9.3", features = ["form", "query", "typed-header", "cookie"] }
 tower-http = { version = "0.5.2", features = ["trace"] }
 lettre = { version = "0.11.9", features = ["tokio1-native-tls"] }
 
@@ -37,3 +37,8 @@ hyper = "1.4.1"
 tracing-subscriber = "0.3.18"
 tracing = "0.1.40"
 headers = "0.4.0"
+
+
+# -------------test--------------
+flate2 = "1.0.33"
+

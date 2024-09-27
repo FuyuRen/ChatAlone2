@@ -1,3 +1,4 @@
 /target
 /cfg
+/test
 sqlite3.lib

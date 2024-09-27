@@ -5,6 +5,7 @@ mod jwt;
 mod uuid;
 mod server;
 
+use std::net::SocketAddr;
 use std::str::FromStr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use anyhow::Result;
@@ -30,13 +31,13 @@ async fn test_email() -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let addr = "0.0.0.0:55555";
+    let addr = "0.0.0.0:5555";
     let sql_conn = SqlConn::new()?;
     let user_db = UserDB::init("users", sql_conn).await?;
 
     let app = route(user_db);
     let listener = tokio::net::TcpListener::bind(addr).await?;
     println!("listening on {}", listener.local_addr()?);
-    Ok(axum::serve(listener, app).await?)
+    Ok(axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?)
 }
 

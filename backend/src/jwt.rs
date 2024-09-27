@@ -23,6 +23,7 @@ use axum_extra::{
 };
 use axum_extra::headers::Cookie;
 use serde_json::json;
+use crate::uuid::UUID;
 
 const JWT_SECRET: &str = "test_secret";
 
@@ -62,6 +63,10 @@ impl JwtPayload {
             user_id,
             exp_time: time.unix_timestamp() + expire_time_s
         }
+    }
+
+    pub fn uuid(&self) -> UUID {
+        UUID::from(self.user_id as u64)
     }
 }
 
@@ -154,7 +159,7 @@ impl Jwt {
     fn header(&self) -> &JwtHeader {
         &self.header
     }
-    fn payload(&self) -> &JwtPayload {
+    pub fn payload(&self) -> &JwtPayload {
         &self.payload
     }
     fn signature(&self) -> &JwtSignature {
@@ -234,6 +239,7 @@ impl TryInto<String> for Jwt {
 }
 
 pub enum JwtError {
+    MissingToken,
     InvalidToken,
     Expired,
     InternalError(String),
@@ -266,6 +272,8 @@ impl<S> FromRequestParts<S> for Jwt where S: Send + Sync {
 impl IntoResponse for JwtError {
     fn into_response(self) -> Response {
         let (status, err_msg) = match self {
+            JwtError::MissingToken
+                => (StatusCode::UNAUTHORIZED, "Missing token"),
             JwtError::InvalidToken
                 => (StatusCode::UNAUTHORIZED, "Invalid token"),
             JwtError::Expired

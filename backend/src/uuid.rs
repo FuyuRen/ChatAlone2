@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize, Serializer};
 
 const NANOID_LEN: usize = 2*8;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct UUID(Vec<u8>);
 
 impl UUID {
@@ -40,6 +40,18 @@ impl From<&UUID> for i64 {
         ret as i64
     }
 }
+
+impl Into<usize> for UUID {
+    fn into(self) -> usize {
+        let mut ret = 0usize;
+        for (i, b) in self.0.iter().enumerate() {
+            ret |= (*b as usize) << (8 * ((NANOID_LEN / 2 - 1) - i));
+        }
+        ret
+    }
+}
+
+
 
 impl FromStr for UUID {
     type Err = anyhow::Error;
