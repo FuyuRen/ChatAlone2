@@ -221,15 +221,26 @@ pub fn route(user_db: UserDB) -> Router {
     let websocket = ws::route();
     let tools = tools::route(state.clone());
 
-    Router::new()
-        .nest("/", login)
-        .nest("/", register)
-        .nest("/", public)
-        .nest("/", websocket)
-        .nest("/tools", tools)
-        .route("/chat", get(chat))
-        .fallback(handler_404)
-        .with_state(state)
+    if cfg!(debug_assertions) {
+        Router::new()
+            .nest("/", login)
+            .nest("/", register)
+            .nest("/", public)
+            .nest("/", websocket)
+            .nest("/tools", tools)
+            .route("/chat", get(chat))
+            .fallback(handler_404)
+            .with_state(state)
+    } else {
+        Router::new()
+            .nest("/", login)
+            .nest("/", register)
+            .nest("/", public)
+            .nest("/", websocket)
+            .route("/chat", get(chat))
+            .fallback(handler_404)
+            .with_state(state)
+    }
 
 }
 
