@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
+members = [ ".", "./migration" ]
 
 [dependencies]
 # ---------------------async runtime----------------------
@@ -19,9 +21,9 @@ dashmap = "6.1.0"
 regex = "1.10.6"
 nanoid = "0.4.0"
 
-axum = { version = "0.7.5", features = ["tokio", "ws"] }
-axum-extra = { version = "0.9.3", features = ["form", "query", "typed-header", "cookie"] }
-tower-http = { version = "0.5.2", features = ["trace"] }
+axum = { version = "0.7.7", features = ["tokio", "ws"] }
+axum-extra = { version = "0.9.4", features = ["form", "query", "typed-header", "cookie"] }
+tower-http = { version = "0.6.1", features = ["trace"] }
 lettre = { version = "0.11.9", features = ["tokio1-native-tls"] }
 
 # -----------crypto------------
@@ -32,7 +34,7 @@ rand = "0.8.5"
 base64 = "0.22.1"
 # -----------------------------
 
-rusqlite = "0.32.1"
+#rusqlite = "0.32.1"
 hyper = "1.4.1"
 tracing-subscriber = "0.3.18"
 tracing = "0.1.40"
@@ -41,4 +43,17 @@ headers = "0.4.0"
 
 # -------------test--------------
 flate2 = "1.0.33"
+log = "0.4.22"
+
+migration = { version = "0.1.0", path = "./migration" }
+
+[dependencies.sea-orm]
+version = "1.0.1"
+features = [
+    "runtime-tokio-rustls",
+    "sqlx-postgres",
+    "macros",
+    "debug-print"
+]
+
 

@@ -5,7 +5,6 @@ use std::{
 };
 use std::fmt::format;
 use anyhow::{Result, anyhow};
-use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::json;
 use tokio::sync::Mutex;

@@ -51,6 +51,13 @@ impl Into<usize> for UUID {
     }
 }
 
+impl Into<i64> for UUID {
+    fn into(self) -> i64 {
+        let ret: usize = self.into();
+        ret as i64
+    }
+}
+
 
 
 impl FromStr for UUID {

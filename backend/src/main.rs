@@ -4,6 +4,8 @@ mod sql;
 mod jwt;
 mod uuid;
 mod server;
+mod sql_test;
+mod entities;
 
 use std::net::SocketAddr;
 use std::str::FromStr;
