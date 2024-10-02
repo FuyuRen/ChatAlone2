@@ -1,25 +1,15 @@
 use axum::{
-    Json,
-    Router,
     extract::State,
     http::StatusCode,
-    response::{
-        Html,
-        Response,
-        IntoResponse,
-    },
+    response::{Html, IntoResponse, Response},
     routing::{get, post},
+    Json, Router,
 };
 use axum_extra::extract::cookie;
 use serde::Deserialize;
 
 use crate::server::{
-    fs_read,
-    is_valid_email,
-    AppState,
-    ServerResponse,
-    ServerResponseError,
-    JWT_EXPIRE_DURATION
+    fs_read, is_valid_email, AppState, ServerResponse, ServerResponseError, JWT_EXPIRE_DURATION,
 };
 
 use crate::jwt::Jwt;
@@ -44,20 +34,22 @@ async fn get_login() -> Html<String> {
 }
 
 async fn check_login(user_db: &UserDB, email: &String, password: &String) -> Option<UUID> {
-    let user = user_db.select(email).await;
-    if let Err(_) = user { return None }
-    let user = user.unwrap();
-    if !user.verify_password(password) { return None }
-    Some(user.userid)
+    let user = user_db.select_email(email).await;
+    if let Err(_) = user {
+        return None;
+    }
+    match user.unwrap() {
+        Some(user) => user.verify_password(password).then(||{ user.uuid() }),
+        _ => None,
+    }
 }
 
-async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> impl IntoResponse {
-    let ret = Response::builder()
-        .status(StatusCode::OK)
-        .header("Content-Type", "application/json");
-
+async fn post_login(
+    State(state): State<AppState>,
+    Json(params): Json<LoginParams>
+) -> impl IntoResponse {
     println!("post(login) called with params: {:?}", params);
-    let LoginParams{email, password} = params;
+    let LoginParams { email, password } = params;
 
     if email.is_none() || password.is_none() {
         return ServerResponse::fine(ServerResponseError::NullLoginParams, None);
@@ -66,11 +58,12 @@ async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> 
     let email = email.unwrap();
     let password = password.unwrap();
 
-    if ! is_valid_email(&email) {
+    if !is_valid_email(&email) {
         return ServerResponse::fine(ServerResponseError::IllegalLoginParams, None);
     }
 
-    if let Some(id) = check_login(&state.user_db, &email, &password).await {
+    let db: UserDB = state.into();
+    if let Some(id) = check_login(&db, &email, &password).await {
         println!("post(login) user found");
         let jwt = Jwt::generate(i64::from(&id) as usize, JWT_EXPIRE_DURATION);
         if let Ok(jwt) = jwt {
@@ -81,10 +74,11 @@ async fn post_login(state: State<AppState>, Json(params): Json<LoginParams>) -> 
                 .secure(false)
                 .build();
 
-            return ServerResponse::ok(None).set_cookie(jwt_cookie)
-                .unwrap_or_else(|_e|
+            return ServerResponse::ok(None)
+                .set_cookie(jwt_cookie)
+                .unwrap_or_else(|_e| {
                     ServerResponse::inner_err(ServerResponseError::InternalTokenGenError)
-                )
+                });
         };
     } else {
         println!("post(login) user not found");

@@ -1,51 +1,42 @@
 mod login;
-mod register;
 mod public;
-mod ws;
+mod register;
 mod tools;
+mod ws;
 
 use std::fmt::Display;
 
+use anyhow::{anyhow, Error, Result};
 use tokio::fs::File;
 use tokio::io;
 use tokio::io::AsyncReadExt;
-use anyhow::{Result, anyhow, Error};
 
-use serde::{ ser::SerializeMap, Deserialize, Serialize };
+use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use axum::{
-    Json,
-    Router,
-    body::Body,
-    response::Html,
-    routing::{get, post},
-    extract::State,
-    http::{
-        header,
-        HeaderName,
-        StatusCode,
-    },
-    response::{
-        Redirect,
-        Response,
-        IntoResponse,
-    }
-};
 use axum::http::HeaderValue;
-use axum_extra::{
-    headers::{Cookie, HeaderMap},
-    extract::cookie,
+use axum::{
+    body::Body,
+    extract::State,
+    http::{header, HeaderName, StatusCode},
+    response::Html,
+    response::{IntoResponse, Redirect, Response},
+    routing::{get, post},
+    Json, Router,
 };
-
+use axum_extra::{
+    extract::cookie,
+    headers::{Cookie, HeaderMap},
+};
+use sea_orm::DatabaseConnection;
 use crate::email::Email;
 use crate::jwt::{Jwt, JwtError};
-use crate::sql::{UserDB, UserTable};
+use crate::sql::{DataBase, UserDB};
+use crate::entities::user_info::UserTable;
 use crate::uuid::UUID;
 
 const FRONTEND_DIR: &'static str = "../../frontend";
 const JWT_EXPIRE_DURATION: i64 = 3600;
-
 
 #[derive(Debug, Copy, Clone)]
 enum ServerResponseError {
@@ -137,7 +128,8 @@ impl ServerResponse {
     }
 
     fn set_cookie(mut self, cookie: cookie::Cookie) -> Result<Self> {
-        self.headers.insert(header::SET_COOKIE, cookie.to_string().parse()?);
+        self.headers
+            .insert(header::SET_COOKIE, cookie.to_string().parse()?);
         Ok(self)
     }
 
@@ -150,7 +142,6 @@ impl ServerResponse {
         self.data = data;
         self
     }
-
 }
 
 impl Default for ServerResponse {
@@ -161,10 +152,12 @@ impl Default for ServerResponse {
 
 impl Serialize for ServerResponse {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         let len = 2;
         let mut map = if self.data.is_some() {
-            let mut map = serializer.serialize_map(Some(len+1))?;
+            let mut map = serializer.serialize_map(Some(len + 1))?;
             map.serialize_entry("data", &self.data)?;
             map
         } else {
@@ -184,7 +177,6 @@ impl IntoResponse for ServerResponse {
         let headers = self.headers;
 
         (status, headers, Json::from(value)).into_response()
-
     }
 }
 
@@ -199,21 +191,31 @@ pub async fn fs_read(path: &str) -> Result<String> {
 
 #[derive(Debug, Clone)]
 pub struct AppState {
-    user_db: UserDB,
+    db_conn: DatabaseConnection,
 }
+
 impl AppState {
-    pub fn new(user_db: UserDB) -> Self {
-        Self { user_db }
+    pub fn new(db_conn: DatabaseConnection) -> Self {
+        Self { db_conn }
+    }
+
+    pub fn user_db(&self) -> UserDB {
+        UserDB::with_conn(self.db_conn.clone())
+    }
+}
+
+impl Into<UserDB> for AppState {
+    fn into(self) -> UserDB {
+        UserDB::with_conn(self.db_conn)
     }
 }
 
 fn is_valid_email(email: &str) -> bool {
-    let re = regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|asia)$").unwrap();
-    re.is_match(email)
+    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|asia)$").unwrap().is_match(email)
 }
 
-pub fn route(user_db: UserDB) -> Router {
-    let state = AppState::new(user_db);
+pub fn route(db_conn: DatabaseConnection) -> Router {
+    let state = AppState::new(db_conn);
 
     let login = login::route(state.clone());
     let public = public::route(state.clone());
@@ -241,14 +243,14 @@ pub fn route(user_db: UserDB) -> Router {
             .fallback(handler_404)
             .with_state(state)
     }
-
 }
 
-
-async fn chat(_jwt: Jwt) -> Result<Html<String>, JwtError> {
-    Ok(Html(include_str!("../../../frontend/chat.html").to_string()))
+async fn chat(_jwt: Jwt) -> Html<String> {
+    // Ok(Html(
+    //     include_str!("../../../frontend/chat.html").to_string(),
+    // ))
+    Html(fs_read("../frontend/chat.html").await.unwrap())
 }
-
 
 async fn handler_404() -> Html<String> {
     Html::from("404 Not Found :( ".to_string())

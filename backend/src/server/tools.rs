@@ -1,15 +1,13 @@
-use axum::extract::Query;
-use axum::Router;
-use axum::routing::get;
-use serde::Deserialize;
 use crate::jwt::Jwt;
 use crate::server::AppState;
 use crate::uuid::UUID;
+use axum::extract::Query;
+use axum::routing::get;
+use axum::Router;
+use serde::Deserialize;
 
 pub(crate) fn route(state: AppState) -> Router<AppState> {
-    Router::new()
-        .route("/jwt", get(new_jwt))
-        .with_state(state)
+    Router::new().route("/jwt", get(new_jwt)).with_state(state)
 }
 
 #[derive(Debug, Deserialize)]

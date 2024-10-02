@@ -2,39 +2,36 @@ use std::cell::{RefCell, RefMut};
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
-use crypto::hmac::Hmac;
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+use crypto::hmac::Hmac;
 use crypto::mac::Mac;
 use crypto::sha2::Sha256;
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
+use chrono::Utc;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
-use axum::{async_trait, RequestPartsExt, extract::FromRequestParts, http::request::Parts, Json};
+use crate::uuid::UUID;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum_extra::{
-    TypedHeader,
-    headers::{
-        authorization::Bearer,
-        Authorization
-    }
-};
+use axum::{async_trait, extract::FromRequestParts, http::request::Parts, Json, RequestPartsExt};
 use axum_extra::headers::Cookie;
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
 use serde_json::json;
-use crate::uuid::UUID;
 
 const JWT_SECRET: &str = "test_secret";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum JwtAlg {
-    HS256
+    HS256,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum JwtTyp {
-    JWT
+    JWT,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -46,7 +43,7 @@ impl JwtHeader {
     fn default() -> Self {
         JwtHeader {
             alg: JwtAlg::HS256,
-            typ: JwtTyp::JWT
+            typ: JwtTyp::JWT,
         }
     }
 }
@@ -58,10 +55,10 @@ pub struct JwtPayload {
 }
 impl JwtPayload {
     fn new(user_id: usize, expire_time_s: i64) -> Self {
-        let time = OffsetDateTime::now_utc();
+        let time = Utc::now();
         JwtPayload {
             user_id,
-            exp_time: time.unix_timestamp() + expire_time_s
+            exp_time: time.timestamp_millis() + expire_time_s,
         }
     }
 
@@ -79,7 +76,7 @@ pub struct Jwt {
     signature:  JwtSignature,
 
     #[serde(skip_serializing)]
-    hmac_handler: RefCell<Hmac<Sha256>>
+    hmac_handler: RefCell<Hmac<Sha256>>,
 }
 
 impl Jwt {
@@ -100,7 +97,12 @@ impl Jwt {
     }
 
     fn encode(&self) -> Result<String> {
-        Ok(format!("{}.{}.{}", self.header_b64()?, self.payload_b64()?, self.signature_b64()))
+        Ok(format!(
+            "{}.{}.{}",
+            self.header_b64()?,
+            self.payload_b64()?,
+            self.signature_b64()
+        ))
     }
 
     pub fn generate(user_id: usize, expire_duration_s: i64) -> Result<String> {
@@ -112,12 +114,12 @@ impl Jwt {
             .map_err(|_| JwtError::InternalError("Failed to generate signature".into()))?;
 
         if !result.eq(self.signature()) {
-            return Err(JwtError::InvalidToken)
+            return Err(JwtError::InvalidToken);
         }
 
-        let time = OffsetDateTime::now_utc();
-        if time.unix_timestamp() > self.payload.exp_time {
-            return Err(JwtError::Expired)
+        let time = Utc::now();
+        if time.timestamp_millis() > self.payload.exp_time {
+            return Err(JwtError::Expired);
         }
 
         Ok(())
@@ -129,11 +131,15 @@ impl Jwt {
         Ok(jwt)
     }
 
-    fn generate_signature(mut handler: RefMut<Hmac<Sha256>>, h: &JwtHeader, p: &JwtPayload) -> Result<JwtSignature> {
-        let h_json  = serde_json::to_string(h)?;
+    fn generate_signature(
+        mut handler: RefMut<Hmac<Sha256>>,
+        h: &JwtHeader,
+        p: &JwtPayload,
+    ) -> Result<JwtSignature> {
+        let h_json = serde_json::to_string(h)?;
         let p_json = serde_json::to_string(p)?;
 
-        let header_b64  = URL_SAFE.encode(h_json);
+        let header_b64 = URL_SAFE.encode(h_json);
         let payload_b64 = URL_SAFE.encode(p_json);
 
         let content = format!("{header_b64}.{payload_b64}");
@@ -145,11 +151,11 @@ impl Jwt {
     }
 
     fn header_b64(&self) -> Result<String> {
-        let h_json  = serde_json::to_string(self.header())?;
+        let h_json = serde_json::to_string(self.header())?;
         Ok(URL_SAFE.encode(h_json))
     }
     fn payload_b64(&self) -> Result<String> {
-        let p_json  = serde_json::to_string(self.payload())?;
+        let p_json = serde_json::to_string(self.payload())?;
         Ok(URL_SAFE.encode(p_json))
     }
     fn signature_b64(&self) -> String {
@@ -171,7 +177,6 @@ impl Jwt {
     fn handler_mut(&self) -> RefMut<Hmac<Sha256>> {
         self.hmac_handler.borrow_mut()
     }
-
 }
 
 impl TryInto<Jwt> for String {
@@ -193,11 +198,11 @@ impl TryInto<Jwt> for String {
         let mut hmac = Hmac::<Sha256>::new(Sha256::new(), JWT_SECRET.as_bytes());
         hmac.reset();
 
-        Ok( Jwt {
+        Ok(Jwt {
             header,
             payload,
             signature,
-            hmac_handler: RefCell::new(hmac)
+            hmac_handler: RefCell::new(hmac),
         })
     }
 }
@@ -222,11 +227,11 @@ impl TryFrom<&str> for Jwt {
         let mut hmac = Hmac::<Sha256>::new(Sha256::new(), JWT_SECRET.as_bytes());
         hmac.reset();
 
-        Ok( Jwt {
+        Ok(Jwt {
             header,
             payload,
             signature,
-            hmac_handler: RefCell::new(hmac)
+            hmac_handler: RefCell::new(hmac),
         })
     }
 }
@@ -234,7 +239,12 @@ impl TryFrom<&str> for Jwt {
 impl TryInto<String> for Jwt {
     type Error = anyhow::Error;
     fn try_into(self) -> Result<String, Self::Error> {
-        Ok(format!("{}.{}.{}", self.header_b64()?, self.payload_b64()?, self.signature_b64()))
+        Ok(format!(
+            "{}.{}.{}",
+            self.header_b64()?,
+            self.payload_b64()?,
+            self.signature_b64()
+        ))
     }
 }
 
@@ -252,12 +262,19 @@ impl Display for JwtError {
 }
 
 #[async_trait]
-impl<S> FromRequestParts<S> for Jwt where S: Send + Sync {
+impl<S> FromRequestParts<S> for Jwt
+where
+    S: Send + Sync,
+{
     type Rejection = JwtError;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> std::result::Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        _state: &S,
+    ) -> std::result::Result<Self, Self::Rejection> {
         let TypedHeader(cookie) = parts
-            .extract::<TypedHeader<Cookie>>().await
+            .extract::<TypedHeader<Cookie>>()
+            .await
             .map_err(|_| JwtError::InvalidToken)?;
         let jwt_str = cookie.get("token").ok_or(JwtError::InvalidToken)?;
 

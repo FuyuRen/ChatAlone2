@@ -1,89 +1,170 @@
-use std::sync::Arc;
-use std::time::Duration;
-use anyhow::Error;
-use crypto::scrypt::ScryptParams;
-use futures::AsyncWriteExt;
-use sea_orm::{ActiveValue, ConnectOptions, Database};
-use sea_orm::prelude::*;
-use sea_orm::prelude::async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use crate::entities::{room_info, user_info};
-use crate::entities::prelude::{RoomInfo, UserInfo};
-use crate::uuid::UUID;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DataBaseConfig {
-    pub port:   u16,
-    pub host:   String,
-    username:   String,
-    password:   String,
-    schema:     String,
-}
-
-#[tokio::test]
-async fn db_test() -> anyhow::Result<()> {
-    use crate::server::fs_read;
-    use serde_json;
-    let config: DataBaseConfig = serde_json::from_str(fs_read("./cfg/sql.json")?)?;
-    println!("{:?}", config);
-    let db = UserDB::from_cfg(&config).await?;
-
-    let user_table = user_info::ActiveModel {
-        user_id:    ActiveValue::Set(UUID::new().into()),
-        email:      ActiveValue::Set("somebody@gmail.com".to_string()),
-        username:   ActiveValue::Set("ayi".to_string()),
-        password:   ActiveValue::Set("114514".to_string()),
-        join_time:  ActiveValue::Set("1919810".to_string()),
-    };
-    let res = UserInfo::insert(user_table).exec(&db.conn).await?;
-    Ok(())
-}
-
-// "EntityTrait"::insert("ActiveModel")
-
-#[async_trait]
-pub trait DataBase {
-    async fn from_cfg(config: &DataBaseConfig) -> Result<Self, anyhow::Error> {
-        let addr = format!("postgres://{}:{}@{}:{}/database?currentSchema={}",
-            config.username, config.password, config.host, config.port, config.schema);
-
-        let mut opt = ConnectOptions::new(&addr);
-        opt.max_connections(100)
-            .min_connections(5)
-            .connect_timeout(Duration::from_secs(8))
-            .acquire_timeout(Duration::from_secs(8))
-            .idle_timeout(Duration::from_secs(8))
-            .max_lifetime(Duration::from_secs(8))
-            .sqlx_logging(true)
-            .sqlx_logging_level(log::LevelFilter::Info)
-            .set_schema_search_path(config.schema.as_ref());
-
-        let conn = Database::connect(opt).await?;
-
-        Ok(Self::with_conn(conn))
-    }
-
-    fn with_conn(conn: DatabaseConnection) -> Self;
-    fn conn(&self) -> &DatabaseConnection;
-}
-
-#[async_trait]
-pub trait CRUD<T> where T: DataBase {
-    async fn insert(&self, entity: &impl EntityTrait, table: &impl ActiveModelTrait) -> Result<(), DbErr> {
-        entity.insert(table).exec(self.conn()).await;
-    }
-}
-
-pub struct UserDB {
-    conn:   DatabaseConnection,
-}
-
-impl DataBase for UserDB {
-    fn with_conn(conn: DatabaseConnection) -> Self {
-        Self { conn }
-    }
-    fn conn(&self) -> &DatabaseConnection {
-        &self.conn
-    }
-
-}
+// use crate::uuid::UUID;
+// use anyhow::{anyhow, Result};
+// use serde::{Deserialize, Serialize, Serializer};
+// use serde_json::json;
+// use std::fmt::format;
+// use std::{fmt::Display, str::FromStr, sync::Arc};
+// use tokio::sync::Mutex;
+//
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct UserTable {
+//     pub register_time: i64,
+//     pub userid: UUID,
+//     pub email: String,
+//     pub username: String,
+//     pub password: String,
+// }
+//
+// impl UserTable {
+//     pub fn new(email: &str, username: &str, password: &str) -> Self {
+//         UserTable {
+//             register_time: time::OffsetDateTime::now_utc().unix_timestamp(),
+//             userid: UUID::new(),
+//             email: email.to_string(),
+//             username: username.to_string(),
+//             password: password.to_string(),
+//         }
+//     }
+//     pub fn verify_password(&self, password: &String) -> bool {
+//         self.password.eq(password)
+//     }
+// }
+//
+// #[derive(Debug, Clone)]
+// pub struct UserDB {
+//     db_name: &'static str,
+//     sql: SqlConn,
+// }
+//
+// impl UserDB {
+//     pub async fn init(db_name: &'static str, sql_conn: SqlConn) -> Result<Self> {
+//         sql_conn.0.lock().await.execute(
+//             format!(
+//                 "CREATE TABLE if not exists {db_name} (
+//                     userid          integer  primary key    NOT NULL,
+//                     register_time   int                     NOT NULL,
+//                     email           text                    NOT NULL,
+//                     username        text                    NOT NULL,
+//                     password        text                    NOT NULL
+//                 )"
+//             )
+//             .as_str(),
+//             (),
+//         )?;
+//
+//         Ok(Self {
+//             db_name,
+//             sql: sql_conn,
+//         })
+//     }
+//
+//     pub async fn insert(&self, t: &UserTable) -> Result<()> {
+//         let table_name = self.db_name;
+//         self.sql.0.lock().await.execute(
+//             format!(
+//                 "INSERT INTO {table_name} (userid, email, register_time, username, password)
+//                  VALUES (?1, ?2, ?3, ?4, ?5)"
+//             )
+//             .as_str(),
+//             params![
+//                 i64::from(&t.userid),
+//                 t.email.as_str(),
+//                 t.register_time,
+//                 t.username.as_str(),
+//                 t.password.as_str()
+//             ],
+//         )?;
+//         Ok(())
+//     }
+//
+//     pub async fn select(&self, email: &str) -> Result<UserTable> {
+//         let name = self.db_name;
+//         let conn = self.sql.0.lock().await;
+//         let mut stmt = conn.prepare(
+//             format!(
+//                 "SELECT userid, register_time, email, username, password FROM {name}
+//                  WHERE email = ?1"
+//             )
+//             .as_str(),
+//         )?;
+//         let mut rows = stmt.query(params![email])?;
+//         // only first one
+//         let row = rows.next()?;
+//
+//         if let Some(row) = row {
+//             let userid: i64 = row.get(0)?;
+//
+//             Ok(UserTable {
+//                 userid: UUID::from(userid),
+//                 register_time: row.get(1)?,
+//                 email: row.get(2)?,
+//                 username: row.get(3)?,
+//                 password: row.get(4)?,
+//             })
+//         } else {
+//             Err(anyhow!("user not found"))
+//         }
+//     }
+// }
+//
+// #[derive(Debug)]
+// pub struct SqlConn(Arc<Mutex<Connection>>);
+// impl Clone for SqlConn {
+//     fn clone(&self) -> Self {
+//         Self(Arc::clone(&self.0))
+//     }
+// }
+//
+// impl SqlConn {
+//     pub fn new() -> Result<Self> {
+//         let c = Connection::open("chatAlone.db")?;
+//         let sql = SqlConn(Arc::new(Mutex::new(c)));
+//         Ok(sql)
+//     }
+//
+//     pub async fn drop_table(&self, name: &str) -> Result<()> {
+//         let conn = self.0.lock().await;
+//         conn.execute(format!("DROP TABLE {name}").as_str(), ())?;
+//         Ok(())
+//     }
+//
+//     pub fn conn(&self) -> Arc<Mutex<Connection>> {
+//         Arc::clone(&self.0)
+//     }
+// }
+//
+// #[test]
+// fn test_user_table_serialize_deserialize() {
+//     let user1 = UserTable {
+//         register_time: 0,
+//         userid: UUID::new(),
+//         email: "no-reply@chatalone.asia".to_string(),
+//         username: "admin".to_string(),
+//         password: "foobar".to_string(),
+//     };
+//     let json = json!(user1).to_string();
+//     let user2: UserTable = serde_json::from_str(json.as_str()).unwrap();
+//     println!("{:?} {:?}", user1, user2);
+// }
+//
+// #[tokio::test]
+// async fn test_user_table_insert_select() {
+//     let sql = SqlConn::new().unwrap();
+//     let user_db = UserDB::init("user", sql.clone()).await.unwrap();
+//
+//     let time = time::OffsetDateTime::now_utc();
+//     let time = (time.unix_timestamp_nanos() / 1_000_000) as i64;
+//
+//     let user1 = UserTable {
+//         register_time: time,
+//         userid: UUID::new(),
+//         email: "no-reply@chatalone.asia".to_string(),
+//         username: "admin".to_string(),
+//         password: "foobar".to_string(),
+//     };
+//     println!("{:?}", user1.userid);
+//     user_db.insert(&user1).await.unwrap();
+//
+//     let user2 = user_db.select("sb").await;
+//     println!("{:?}", user2);
+// }

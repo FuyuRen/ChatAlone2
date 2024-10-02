@@ -16,13 +16,14 @@ tokio = { version = "1.40.0", features = ["full"] }
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
 anyhow = "1.0.89"
-time = "0.3.36"
+chrono = "0.4.38"
 dashmap = "6.1.0"
 regex = "1.10.6"
 nanoid = "0.4.0"
 
 axum = { version = "0.7.7", features = ["tokio", "ws"] }
 axum-extra = { version = "0.9.4", features = ["form", "query", "typed-header", "cookie"] }
+time = "0.3.36"
 tower-http = { version = "0.6.1", features = ["trace"] }
 lettre = { version = "0.11.9", features = ["tokio1-native-tls"] }
 
@@ -35,10 +36,10 @@ base64 = "0.22.1"
 # -----------------------------
 
 #rusqlite = "0.32.1"
-hyper = "1.4.1"
+#hyper = "1.4.1"
 tracing-subscriber = "0.3.18"
 tracing = "0.1.40"
-headers = "0.4.0"
+#headers = "0.4.0"
 
 
 # -------------test--------------

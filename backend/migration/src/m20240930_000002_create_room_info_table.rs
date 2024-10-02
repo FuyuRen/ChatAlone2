@@ -5,7 +5,6 @@ pub struct Migration;
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
-
     //  CREATE TABLE IF NOT EXISTS ChatAlone2.room_info(
     //      room_id     INTEGER         NOT NULL,
     //      room_name   VARCHAR(32)     NOT NULL,
@@ -18,7 +17,12 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(RoomInfo::Table)
-                    .col(ColumnDef::new(RoomInfo::RoomId).big_unsigned().not_null().primary_key())
+                    .col(
+                        ColumnDef::new(RoomInfo::RoomId)
+                            .big_unsigned()
+                            .not_null()
+                            .primary_key(),
+                    )
                     .col(ColumnDef::new(RoomInfo::RoomName).string().not_null())
                     .col(ColumnDef::new(RoomInfo::CreateTime).timestamp().not_null())
                     // .col(ColumnDef::new(RoomInfo::IsVIP).string().not_null())

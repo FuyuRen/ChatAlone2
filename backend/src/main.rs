@@ -1,27 +1,26 @@
 mod email;
-mod room;
-mod sql;
+mod entities;
 mod jwt;
-mod uuid;
+mod room;
 mod server;
 mod sql_test;
-mod entities;
+mod uuid;
+mod sql;
 
+use anyhow::Result;
+use email::Email;
+use server::{fs_read, route};
 use std::net::SocketAddr;
 use std::str::FromStr;
+use chrono::Utc;
+use anyhow::anyhow;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use anyhow::Result;
-use server::{fs_read, route};
-use time::OffsetDateTime;
-use email::Email;
 
-use crate::sql::{
-    SqlConn, UserDB,
-};
+use crate::sql::{DataBase, DataBaseConfig, UserDB};
 
 #[tokio::test]
 async fn test_email() -> Result<()> {
-    let time = OffsetDateTime::now_utc();
+    let time = Utc::now();
     println!("{}", time);
 
     let email_cfg = fs_read("./cfg/email.json").await?;
@@ -34,12 +33,22 @@ async fn test_email() -> Result<()> {
 #[tokio::main]
 async fn main() -> Result<()> {
     let addr = "0.0.0.0:5555";
-    let sql_conn = SqlConn::new()?;
-    let user_db = UserDB::init("users", sql_conn).await?;
 
-    let app = route(user_db);
+    let conn = async {
+        let config: DataBaseConfig
+            = serde_json::from_str(&fs_read("./cfg/sql.json").await?)?;
+        Ok(config.to_conn().await?)
+    };
+
+    let conn = conn.await
+        .map_err(|e: anyhow::Error|anyhow!(format!("[Error] {}\tPlease check cfg/sql.json.", e)))?;
+
+    let app = route(conn);
     let listener = tokio::net::TcpListener::bind(addr).await?;
     println!("listening on {}", listener.local_addr()?);
-    Ok(axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?)
+    Ok(axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?)
 }
-

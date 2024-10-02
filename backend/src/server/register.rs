@@ -1,23 +1,13 @@
-use axum::{
-    Json,
-    Router,
-    extract::State,
-    response::{
-        Html,
-        IntoResponse,
-    },
-    routing::{get, post},
-};
 use anyhow::anyhow;
-use serde::Deserialize;
-
-use crate::sql::UserTable;
-use crate::server::{
-    fs_read,
-    AppState,
-    ServerResponse,
-    ServerResponseError
+use axum::{
+    extract::State,
+    response::{Html, IntoResponse},
+    routing::{get, post},
+    Json, Router,
 };
+use serde::Deserialize;
+use crate::server::{fs_read, AppState, ServerResponse, ServerResponseError};
+use crate::sql::{UserDB, UserTable};
 
 #[derive(Debug, Deserialize)]
 struct RegisterParams {
@@ -39,7 +29,7 @@ impl TryInto<UserTable> for RegisterParams {
             Ok(UserTable::new(
                 &self.email.unwrap(),
                 &self.username.unwrap(),
-                &self.password.unwrap()
+                &self.password.unwrap(),
             ))
         } else {
             Err(anyhow!("Invalid register params"))
@@ -58,27 +48,29 @@ async fn get_register() -> Html<String> {
     Html(fs_read("../frontend/register.html").await.unwrap())
 }
 
-async fn post_register(state: State<AppState>, Json(params): Json<RegisterParams>) -> impl IntoResponse {
-    let db = &state.user_db;
+async fn post_register(
+    State(state): State<AppState>,
+    Json(params): Json<RegisterParams>,
+) -> impl IntoResponse {
+    let db: UserDB = state.into();
     if !params.is_legal() {
         return ServerResponse::fine(ServerResponseError::InvalidRegisterParams, None);
     }
-    let user = db.select(params.email.as_ref().unwrap()).await;
+    let user = db.select_email(params.email.as_ref().unwrap()).await;
 
-    if let Err(e) = &user {
-        if !e.to_string().eq("user not found") {
-            return ServerResponse::inner_err(ServerResponseError::InternalDatabaseError);
+    if let Ok(res) = &user {
+        if let Some(_) = res {
+            return ServerResponse::fine(ServerResponseError::ExistRegisterEmail, None);
         }
     } else {
-        return ServerResponse::fine(ServerResponseError::ExistRegisterEmail, None);
+        println!("[Register(post)] Error: {}", user.err().unwrap());
+        return ServerResponse::inner_err(ServerResponseError::InternalDatabaseError);
     }
 
     let new_user: UserTable = params.try_into().unwrap();
-    if let Err(_) = db.insert(&new_user).await {
+    if let Err(_) = db.insert(new_user).await {
         ServerResponse::inner_err(ServerResponseError::InternalDatabaseError)
     } else {
         ServerResponse::ok(None)
-        // ServerResponse::new(StatusCode::PERMANENT_REDIRECT, ServerResponseError::SUCCESS, None)
     }
-
 }

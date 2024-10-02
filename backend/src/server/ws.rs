@@ -3,21 +3,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{
-    Router,
-    extract::{
-        ConnectInfo,
-        State,
-        WebSocketUpgrade
-    },
-    extract::ws::{
-        Message,
-        WebSocket
-    },
-    response::{
-        IntoResponse,
-        Response
-    },
+    extract::ws::{Message, WebSocket},
+    extract::{ConnectInfo, State, WebSocketUpgrade},
+    response::{IntoResponse, Response},
     routing::get,
+    Router,
 };
 
 use axum_extra::extract::Query;
@@ -34,7 +24,7 @@ use crate::uuid::UUID;
 #[derive(Clone)]
 struct WsSharedState {
     rooms: Arc<DashMap<UUID, ChatRoom>>, // key: room_id, value: ChatRoom
-    users: Arc<DashMap<UUID, UUID>>, // key: user_id, value: room_id
+    users: Arc<DashMap<UUID, UUID>>,     // key: user_id, value: room_id
 }
 
 impl WsSharedState {
@@ -52,16 +42,19 @@ impl Default for WsSharedState {
         let user_1 = UUID::from(114_i64);
         let user_2 = UUID::from(514_i64);
 
-        println!("room_id: {}, user_1: {}, user_2: {}", room_id, user_1, user_2);
+        println!(
+            "room_id: {}, user_1: {}, user_2: {}",
+            room_id, user_1, user_2
+        );
 
         let rooms = DashMap::new();
         rooms.insert(room_id.clone(), ChatRoom::default());
         let users = DashMap::new();
         users.insert(user_1, room_id.clone());
-        users.insert(user_2, room_id        );
+        users.insert(user_2, room_id);
         WsSharedState {
             rooms: Arc::new(rooms),
-            users: Arc::new(users)
+            users: Arc::new(users),
         }
     }
 }
@@ -74,8 +67,8 @@ pub(crate) fn route() -> Router<AppState> {
 
 #[derive(Debug, Deserialize, Clone)]
 struct WsConnQuery {
-    token:      Option<String>,
-    session_id: Option<String>
+    token: Option<String>,
+    session_id: Option<String>,
 }
 
 impl WsConnQuery {
@@ -97,14 +90,12 @@ async fn handler(
     Query(query): Query<WsConnQuery>,
     State(ws_state): State<WsSharedState>,
 ) -> Response {
-
     println!("{} connected.", addr);
 
     match query.authorize() {
         Err(e) => e.into_response(),
-        Ok(uuid) => ws.on_upgrade(move |socket| ws_handler(socket, uuid, ws_state))
+        Ok(uuid) => ws.on_upgrade(move |socket| ws_handler(socket, uuid, ws_state)),
     }
-
 }
 
 async fn ws_handler(mut socket: WebSocket, user_id: UUID, state: WsSharedState) -> () {
@@ -122,7 +113,6 @@ async fn ws_handler(mut socket: WebSocket, user_id: UUID, state: WsSharedState) 
     let tx = room.get_sender();
     let mut rx = room.subscribe();
 
-
     let mut recv_task = tokio::spawn(async move {
         loop {
             match receiver.next().await {
@@ -130,8 +120,8 @@ async fn ws_handler(mut socket: WebSocket, user_id: UUID, state: WsSharedState) 
                     if let Err(e) = tx.send(RoomEvents::Message(msg)) {
                         return Err(e);
                     }
-                },
-                _ => return Ok(())
+                }
+                _ => return Ok(()),
             }
         }
     });
@@ -143,8 +133,8 @@ async fn ws_handler(mut socket: WebSocket, user_id: UUID, state: WsSharedState) 
                     if let Err(e) = sender.send(Message::Text(msg)).await {
                         return Err(e);
                     }
-                },
-                _ => return Ok(())
+                }
+                _ => return Ok(()),
             }
         }
     });
@@ -175,5 +165,4 @@ async fn ws_handler(mut socket: WebSocket, user_id: UUID, state: WsSharedState) 
     //         }
     //     }
     // }.await;
-
 }

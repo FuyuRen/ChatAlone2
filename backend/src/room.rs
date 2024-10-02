@@ -1,7 +1,7 @@
+use crate::uuid::UUID;
 use dashmap::DashMap;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::{Receiver, Sender};
-use crate::uuid::UUID;
 
 #[derive(Debug, Clone)]
 pub enum RoomEvents {

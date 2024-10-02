@@ -1,10 +1,7 @@
 use crate::server::{fs_read, AppState};
 
-use axum::{
-    Router,
-    routing::get
-};
 use axum::response::Html;
+use axum::{routing::get, Router};
 
 pub(crate) fn route(app_state: AppState) -> Router<AppState> {
     Router::new()
