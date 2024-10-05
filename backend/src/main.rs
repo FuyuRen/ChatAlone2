@@ -3,7 +3,6 @@ mod entities;
 mod jwt;
 mod room;
 mod server;
-mod sql_test;
 mod uuid;
 mod sql;
 

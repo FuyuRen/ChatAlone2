@@ -75,7 +75,7 @@ pub trait BasicCRUD<T> where T: DataBase {
 async fn db_test() -> anyhow::Result<()> {
     use crate::server::fs_read;
     use serde_json;
-    let config: DataBaseConfig = serde_json::from_str(fs_read("./cfg/sql.json")?)?;
+    let config: DataBaseConfig = serde_json::from_str(&fs_read("./cfg/sql.json").await?)?;
     println!("{:?}", config);
     let db = UserDB::from_cfg(&config).await?;
 
