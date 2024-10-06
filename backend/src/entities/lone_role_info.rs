@@ -3,18 +3,19 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(schema_name = "chat", table_name = "room_info")]
+#[sea_orm(schema_name = "chat", table_name = "lone_role_info")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub lone_id: i32,
     pub name: String,
-    pub r#type: String,
-    pub created_at: DateTime,
+    pub lone_id: i32,
+    pub privilege: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::assoc_lone_user::Entity")]
+    AssocLoneUser,
     #[sea_orm(has_many = "super::assoc_room_user::Entity")]
     AssocRoomUser,
     #[sea_orm(
@@ -25,8 +26,12 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     LoneInfo,
-    #[sea_orm(has_many = "super::room_identity_info::Entity")]
-    RoomIdentityInfo,
+}
+
+impl Related<super::assoc_lone_user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::AssocLoneUser.def()
+    }
 }
 
 impl Related<super::assoc_room_user::Entity> for Entity {
@@ -38,12 +43,6 @@ impl Related<super::assoc_room_user::Entity> for Entity {
 impl Related<super::lone_info::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::LoneInfo.def()
-    }
-}
-
-impl Related<super::room_identity_info::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::RoomIdentityInfo.def()
     }
 }
 

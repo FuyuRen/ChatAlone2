@@ -2,5 +2,10 @@
 
 pub mod prelude;
 
+pub mod assoc_lone_user;
+pub mod assoc_room_user;
+pub mod lone_info;
+pub mod lone_role_info;
+pub mod room_identity_info;
 pub mod room_info;
 pub mod user_info;

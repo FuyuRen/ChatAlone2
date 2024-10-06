@@ -31,7 +31,7 @@ async fn test_email() -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let addr = "0.0.0.0:5555";
+    let addr = "0.0.0.0:55555";
 
     let conn = async {
         let config: DataBaseConfig

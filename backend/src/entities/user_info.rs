@@ -8,27 +8,52 @@ use crate::uuid::UUID;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(schema_name = "chat", table_name = "user_info")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
-    pub user_id: i64,
-    #[sea_orm(unique)]
-    pub email: String,
+    #[sea_orm(primary_key)]
+    pub id: i32,
     pub username: String,
     pub password: String,
-    pub register_time: DateTime,
+    #[sea_orm(unique)]
+    pub email: String,
+    pub created_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(has_many = "super::assoc_lone_user::Entity")]
+    AssocLoneUser,
+    #[sea_orm(has_many = "super::assoc_room_user::Entity")]
+    AssocRoomUser,
+    #[sea_orm(has_many = "super::lone_info::Entity")]
+    LoneInfo,
+}
+
+impl Related<super::assoc_lone_user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::AssocLoneUser.def()
+    }
+}
+
+impl Related<super::assoc_room_user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::AssocRoomUser.def()
+    }
+}
+
+impl Related<super::lone_info::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::LoneInfo.def()
+    }
+}
 
 impl ActiveModelBehavior for ActiveModel {}
 
 
 pub struct UserTable {
-    user_id: UUID,
-    email: String,
-    username: String,
-    password: String,
-    register_time: DateTime,
+    user_id:        UUID,
+    email:          String,
+    username:       String,
+    password:       String,
+    register_time:  DateTime,
 }
 
 impl UserTable {
@@ -53,35 +78,37 @@ impl UserTable {
 impl From<Model> for UserTable {
     fn from(model: Model) -> Self {
         UserTable {
-            user_id:        UUID::from(model.user_id),
+            user_id:        UUID::from(model.id as i64),
             email:          model.email,
             username:       model.username,
             password:       model.password,
-            register_time:  model.register_time,
+            register_time:  model.created_at,
         }
     }
 }
 
 impl Into<ActiveModel> for UserTable {
     fn into(self) -> ActiveModel {
+        let id: i64 = self.user_id.into();
         ActiveModel {
-            user_id:       ActiveValue::Set(self.user_id.into()),
-            email:         ActiveValue::Set(self.email),
-            username:      ActiveValue::Set(self.username),
-            password:      ActiveValue::Set(self.password),
-            register_time: ActiveValue::Set(self.register_time),
+            id:             ActiveValue::Set(id as i32),
+            email:          ActiveValue::Set(self.email),
+            username:       ActiveValue::Set(self.username),
+            password:       ActiveValue::Set(self.password),
+            created_at:     ActiveValue::Set(self.register_time),
         }
     }
 }
 
 impl Into<Model> for UserTable {
     fn into(self) -> Model {
+        let id: i64 = self.user_id.into();
         Model {
-            user_id:       self.user_id.into(),
-            email:         self.email,
-            username:      self.username,
-            password:      self.password,
-            register_time: self.register_time,
+            id:             id as i32,
+            email:          self.email,
+            username:       self.username,
+            password:       self.password,
+            created_at:     self.register_time,
         }
     }
 }

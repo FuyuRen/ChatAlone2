@@ -23,7 +23,7 @@ impl DataBase for UserDB {
     }
 }
 
-type PrimaryKey = i64;
+type PrimaryKey = i32;
 
 impl UserDB {
     pub async fn from_cfg(config: &DataBaseConfig) -> Result<Self, Error> {
