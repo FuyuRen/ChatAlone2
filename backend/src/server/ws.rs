@@ -19,12 +19,13 @@ use tokio::time::sleep;
 use crate::jwt::{Jwt, JwtError};
 use crate::room::{ChatRoom, RoomEvents};
 use crate::server::AppState;
+use crate::id::{GeneralId, Id, RoomId, UserId};
 use crate::uuid::UUID;
 
 #[derive(Clone)]
 struct WsSharedState {
-    rooms: Arc<DashMap<UUID, ChatRoom>>, // key: room_id, value: ChatRoom
-    users: Arc<DashMap<UUID, UUID>>,     // key: user_id, value: room_id
+    rooms: Arc<DashMap<RoomId, ChatRoom>>, // key: room_id, value: ChatRoom
+    users: Arc<DashMap<UserId, RoomId>>,     // key: user_id, value: room_id
 }
 
 impl WsSharedState {
@@ -38,9 +39,9 @@ impl WsSharedState {
 
 impl Default for WsSharedState {
     fn default() -> Self {
-        let room_id = UUID::from(1919810_i64);
-        let user_1 = UUID::from(114_i64);
-        let user_2 = UUID::from(514_i64);
+        let room_id = Id::from_decoded(1919810);
+        let user_1 = Id::from_decoded(114);
+        let user_2 = Id::from_decoded(514);
 
         println!(
             "room_id: {}, user_1: {}, user_2: {}",
@@ -59,10 +60,10 @@ impl Default for WsSharedState {
     }
 }
 
-pub(crate) fn route() -> Router<AppState> {
+pub(crate) fn route(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/ws", get(handler))
-        .with_state(WsSharedState::default())
+        .with_state(state)
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -72,11 +73,11 @@ struct WsConnQuery {
 }
 
 impl WsConnQuery {
-    fn authorize(&self) -> Result<UUID, impl IntoResponse> {
+    fn authorize(&self) -> Result<UserId, impl IntoResponse> {
         if let Some(token) = &self.token {
             match Jwt::parse_and_verify(token) {
                 Err(e) => Err(e),
-                Ok(jwt) => Ok(jwt.payload().uuid()),
+                Ok(jwt) => Ok(UserId::from_decoded(jwt.payload().user_id as u32)),
             }
         } else {
             Err(JwtError::MissingToken)
@@ -88,67 +89,67 @@ async fn handler(
     ws: WebSocketUpgrade,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Query(query): Query<WsConnQuery>,
-    State(ws_state): State<WsSharedState>,
+    State(state): State<AppState>,
 ) -> Response {
     println!("{} connected.", addr);
 
     match query.authorize() {
         Err(e) => e.into_response(),
-        Ok(uuid) => ws.on_upgrade(move |socket| ws_handler(socket, uuid, ws_state)),
+        Ok(uid) => ws.on_upgrade(move |socket| ws_handler(socket, uid, state)),
     }
 }
 
-async fn ws_handler(mut socket: WebSocket, user_id: UUID, state: WsSharedState) -> () {
-    println!("user_id: {}.", user_id);
-    let (mut sender, mut receiver) = socket.split();
-
-    if let Err(e) = sender.send(Message::Text("Hello!!!".to_string())).await {
-        println!("send error: {}", e);
-        return;
-    }
-
-    let room_id = state.users.get(&user_id).unwrap().clone();
-    let room = state.rooms.get(&room_id).unwrap();
-
-    let tx = room.get_sender();
-    let mut rx = room.subscribe();
-
-    let mut recv_task = tokio::spawn(async move {
-        loop {
-            match receiver.next().await {
-                Some(Ok(Message::Text(msg))) => {
-                    if let Err(e) = tx.send(RoomEvents::Message(msg)) {
-                        return Err(e);
-                    }
-                }
-                _ => return Ok(()),
-            }
-        }
-    });
-
-    let mut send_task = tokio::spawn(async move {
-        loop {
-            match rx.recv().await {
-                Ok(RoomEvents::Message(msg)) => {
-                    if let Err(e) = sender.send(Message::Text(msg)).await {
-                        return Err(e);
-                    }
-                }
-                _ => return Ok(()),
-            }
-        }
-    });
-
-    tokio::select! {
-        res = &mut recv_task => {
-            println!("recv task finished: {:?}", res);
-            send_task.abort()
-        },
-        res = &mut send_task => {
-            println!("send task finished: {:?}", res);
-            recv_task.abort()
-        },
-    }
+async fn ws_handler(mut socket: WebSocket, user_id: UserId, state: AppState) -> () {
+    // println!("user_id: {}.", user_id);
+    // let (mut sender, mut receiver) = socket.split();
+    // 
+    // if let Err(e) = sender.send(Message::Text("Hello!!!".to_string())).await {
+    //     println!("send error: {}", e);
+    //     return;
+    // }
+    // 
+    // let room_id = state.users.get(&user_id).unwrap().clone();
+    // let room = state.rooms.get(&room_id).unwrap();
+    // 
+    // let tx = room.get_sender();
+    // let mut rx = room.subscribe();
+    // 
+    // let mut recv_task = tokio::spawn(async move {
+    //     loop {
+    //         match receiver.next().await {
+    //             Some(Ok(Message::Text(msg))) => {
+    //                 if let Err(e) = tx.send(RoomEvents::Message(msg)) {
+    //                     return Err(e);
+    //                 }
+    //             }
+    //             _ => return Ok(()),
+    //         }
+    //     }
+    // });
+    // 
+    // let mut send_task = tokio::spawn(async move {
+    //     loop {
+    //         match rx.recv().await {
+    //             Ok(RoomEvents::Message(msg)) => {
+    //                 if let Err(e) = sender.send(Message::Text(msg)).await {
+    //                     return Err(e);
+    //                 }
+    //             }
+    //             _ => return Ok(()),
+    //         }
+    //     }
+    // });
+    // 
+    // tokio::select! {
+    //     res = &mut recv_task => {
+    //         println!("recv task finished: {:?}", res);
+    //         send_task.abort()
+    //     },
+    //     res = &mut send_task => {
+    //         println!("send task finished: {:?}", res);
+    //         recv_task.abort()
+    //     },
+    // }
 
     // async move {
     //     loop {

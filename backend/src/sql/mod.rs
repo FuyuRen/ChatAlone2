@@ -1,4 +1,5 @@
 mod user;
+mod room;
 
 use migration::{IntoCondition, Order};
 use sea_orm::prelude::async_trait::async_trait;
@@ -6,8 +7,7 @@ use sea_orm::prelude::*;
 use sea_orm::{ConnectOptions, Database, DeleteResult, QueryOrder};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use crate::entities::prelude::UserInfo;
-use crate::entities::user_info;
+use crate::server::AppState;
 pub use crate::sql::user::UserDB as UserDB;
 pub use crate::sql::user::UserTable as UserTable;
 
@@ -43,32 +43,37 @@ impl DataBaseConfig {
     }
 }
 
-#[async_trait]
 pub trait DataBase {
     fn with_conn(conn: DatabaseConnection) -> Self;
     fn conn(&self) -> &DatabaseConnection;
+    fn from_state(state: &AppState) -> Self where Self: Sized {
+        Self::with_conn(state.db_conn.clone())
+    }
 }
 
+
 #[async_trait]
-pub trait BasicCRUD<T> where T: DataBase {
+pub trait BasicCRUD {
     type PrimaryKey;
     type Column;
     type Table;
 
-    async fn insert(&self, model: UserTable) -> Result<Self::PrimaryKey, DbErr>;
+    async fn insert(&self, model: Self::Table) -> Result<Self::PrimaryKey, DbErr>;
 
     async fn select(&self,
-                    conditions: Vec<impl IntoCondition>,
+                    conditions: Vec<impl IntoCondition + Send>,
                     order: Option<(Order, Self::Column)>,
     ) -> Result<Vec<Self::Table>, DbErr>;
     async fn select_pk(&self, pk: Self::PrimaryKey) -> Result<Option<Self::Table>, DbErr>;
     async fn select_one(&self,
-                        conditions: Vec<impl IntoCondition>,
+                        conditions: Vec<impl IntoCondition + Send>,
     ) -> Result<Option<Self::Table>, DbErr>;
 
     async fn delete(&self, model: Self::Table) -> Result<DeleteResult, DbErr>;
     async fn delete_pk(&self, pk: Self::PrimaryKey) -> Result<DeleteResult, DbErr>;
-    async fn delete_all(&self, conditions: Vec<impl IntoCondition>) -> Result<DeleteResult, DbErr>;
+    async fn delete_many(&self, 
+                        conditions: Vec<impl IntoCondition + Send>
+    ) -> Result<DeleteResult, DbErr>;
 }
 
 #[tokio::test]

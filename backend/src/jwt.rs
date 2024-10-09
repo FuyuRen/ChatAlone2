@@ -11,7 +11,6 @@ use chrono::Utc;
 
 use anyhow::{anyhow, Result};
 
-use crate::uuid::UUID;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::{async_trait, extract::FromRequestParts, http::request::Parts, Json, RequestPartsExt};
@@ -50,8 +49,8 @@ impl JwtHeader {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JwtPayload {
-    user_id:    usize,
-    exp_time:   i64,
+    pub user_id:    usize,
+    pub exp_time:   i64,
 }
 impl JwtPayload {
     fn new(user_id: usize, expire_time_s: i64) -> Self {
@@ -60,10 +59,6 @@ impl JwtPayload {
             user_id,
             exp_time: time.timestamp_millis() + expire_time_s,
         }
-    }
-
-    pub fn uuid(&self) -> UUID {
-        UUID::from(self.user_id as i64)
     }
 }
 

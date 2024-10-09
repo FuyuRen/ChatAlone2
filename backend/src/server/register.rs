@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::Deserialize;
 use crate::server::{fs_read, AppState, ServerResponse, ServerResponseError};
-use crate::sql::{UserDB, UserTable};
+use crate::sql::{BasicCRUD, DataBase, UserDB, UserTable};
 
 #[derive(Debug, Deserialize)]
 struct RegisterParams {
@@ -52,7 +52,7 @@ async fn post_register(
     State(state): State<AppState>,
     Json(params): Json<RegisterParams>,
 ) -> impl IntoResponse {
-    let db: UserDB = state.into();
+    let db = UserDB::from_state(&state);
     if !params.is_legal() {
         return ServerResponse::fine(ServerResponseError::InvalidRegisterParams, None);
     }

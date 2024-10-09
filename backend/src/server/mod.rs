@@ -33,7 +33,6 @@ use crate::email::Email;
 use crate::jwt::{Jwt, JwtError};
 use crate::sql::{DataBase, UserDB};
 use crate::entities::user_info::UserTable;
-use crate::uuid::UUID;
 
 const FRONTEND_DIR: &'static str = "../../frontend";
 const JWT_EXPIRE_DURATION: i64 = 3600;
@@ -191,22 +190,12 @@ pub async fn fs_read(path: &str) -> Result<String> {
 
 #[derive(Debug, Clone)]
 pub struct AppState {
-    db_conn: DatabaseConnection,
+    pub db_conn: DatabaseConnection,
 }
 
 impl AppState {
     pub fn new(db_conn: DatabaseConnection) -> Self {
         Self { db_conn }
-    }
-
-    pub fn user_db(&self) -> UserDB {
-        UserDB::with_conn(self.db_conn.clone())
-    }
-}
-
-impl Into<UserDB> for AppState {
-    fn into(self) -> UserDB {
-        UserDB::with_conn(self.db_conn)
     }
 }
 
@@ -220,7 +209,7 @@ pub fn route(db_conn: DatabaseConnection) -> Router {
     let login = login::route(state.clone());
     let public = public::route(state.clone());
     let register = register::route(state.clone());
-    let websocket = ws::route();
+    let websocket = ws::route(state.clone());
     let tools = tools::route(state.clone());
 
     if cfg!(debug_assertions) {

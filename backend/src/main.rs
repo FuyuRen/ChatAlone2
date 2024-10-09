@@ -5,6 +5,7 @@ mod room;
 mod server;
 mod uuid;
 mod sql;
+pub mod id;
 
 use anyhow::Result;
 use email::Email;
@@ -15,7 +16,7 @@ use chrono::Utc;
 use anyhow::anyhow;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::sql::{DataBase, DataBaseConfig, UserDB};
+use crate::sql::{DataBase, DataBaseConfig};
 
 #[tokio::test]
 async fn test_email() -> Result<()> {

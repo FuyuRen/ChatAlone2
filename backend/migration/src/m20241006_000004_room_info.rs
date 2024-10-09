@@ -14,7 +14,7 @@ impl MigrationTrait for Migration {
                 .col(pk_auto(RoomInfo::Id))
                 .col(integer(RoomInfo::LoneId))
                 .col(string_len(RoomInfo::Name, 32))
-                .col(char(RoomInfo::Type).default(Expr::val(0)))
+                .col(char(RoomInfo::RoomType).default(Expr::val(0)))
                 
                 .col(timestamp(RoomInfo::CreatedAt).default(Expr::current_timestamp()))
                 .to_owned(),
@@ -46,6 +46,6 @@ pub enum RoomInfo {
     Id,
     Name,
     LoneId,
-    Type,
+    RoomType,
     CreatedAt,
 }

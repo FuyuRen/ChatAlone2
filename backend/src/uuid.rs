@@ -113,3 +113,4 @@ impl<'de> Deserialize<'de> for UUID {
         UUID::from_str(s.as_str()).map_err(|e| serde::de::Error::custom(e.to_string()))
     }
 }
+

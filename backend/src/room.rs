@@ -1,24 +1,24 @@
-use crate::uuid::UUID;
 use dashmap::DashMap;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::{Receiver, Sender};
+use crate::id::{GeneralId, RoomId, UserId};
 
 #[derive(Debug, Clone)]
 pub enum RoomEvents {
     Message(String),
-    UserJoined(UUID),
-    UserLeft(UUID),
+    UserJoined(UserId),
+    UserLeft(UserId),
 }
 
 pub struct ChatRoom {
-    room_id:        UUID,
+    room_id:        RoomId,
     room_title:     String,
     notifier:       Receiver<RoomEvents>,
     sender:         Sender<RoomEvents>,
 }
 
 impl ChatRoom {
-    fn start(id: UUID, name: String) -> Self {
+    fn start(id: RoomId, name: String) -> Self {
         let (tx, rx) = broadcast::channel(32);
         Self {
             room_id: id,
@@ -28,7 +28,7 @@ impl ChatRoom {
         }
     }
 
-    fn add_user(&mut self, user_id: UUID) -> anyhow::Result<()> {
+    fn add_user(&mut self, user_id: UserId) -> anyhow::Result<()> {
         Ok(())
     }
 
@@ -43,6 +43,6 @@ impl ChatRoom {
 
 impl Default for ChatRoom {
     fn default() -> Self {
-        Self::start(UUID::from(1919810_i64), "test".to_string())
+        Self::start(RoomId::from_decoded(1919810), "test".to_string())
     }
 }

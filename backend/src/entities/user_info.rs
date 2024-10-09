@@ -3,7 +3,7 @@
 use chrono::Utc;
 use sea_orm::ActiveValue;
 use sea_orm::entity::prelude::*;
-use crate::uuid::UUID;
+use crate::id::{GeneralId, UserId};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(schema_name = "chat", table_name = "user_info")]
@@ -49,7 +49,8 @@ impl ActiveModelBehavior for ActiveModel {}
 
 
 pub struct UserTable {
-    user_id:        UUID,
+    is_customized:  bool, // if set true, keys with default val won't be passed to db
+    user_id:        UserId,
     email:          String,
     username:       String,
     password:       String,
@@ -57,28 +58,35 @@ pub struct UserTable {
 }
 
 impl UserTable {
-    pub fn new(email: &str, username: &str, password: &str) -> Self {
+    pub fn from_val(email: &str, username: &str, password: &str, id: i32, time: DateTime) -> Self {
         UserTable {
-            user_id:        UUID::new(),
+            is_customized:  true,
+            user_id:        UserId::from_decoded(id as u32),
             email:          email.to_string(),
             username:       username.to_string(),
             password:       password.to_string(),
-            register_time:  Utc::now().naive_utc(),
+            register_time:  time,
         }
     }
+    
+    pub fn new(email: &str, username: &str, password: &str) -> Self {
+        Self::from_val(email, username, password, 0, Utc::now().naive_utc())
+    }
+    
     pub fn verify_password(&self, password: &String) -> bool {
         self.password.eq(password)
     }
-
-    pub fn uuid(&self) -> UUID {
-        self.user_id.clone()
+    
+    pub fn uid(&self) -> UserId {
+        self.user_id
     }
 }
 
 impl From<Model> for UserTable {
     fn from(model: Model) -> Self {
         UserTable {
-            user_id:        UUID::from(model.id as i64),
+            is_customized:  false,
+            user_id:        UserId::from_decoded(model.id as u32),
             email:          model.email,
             username:       model.username,
             password:       model.password,
@@ -89,22 +97,30 @@ impl From<Model> for UserTable {
 
 impl Into<ActiveModel> for UserTable {
     fn into(self) -> ActiveModel {
-        let id: i64 = self.user_id.into();
-        ActiveModel {
-            id:             ActiveValue::Set(id as i32),
-            email:          ActiveValue::Set(self.email),
-            username:       ActiveValue::Set(self.username),
-            password:       ActiveValue::Set(self.password),
-            created_at:     ActiveValue::Set(self.register_time),
+        if self.is_customized {
+            ActiveModel {
+                id:             ActiveValue::NotSet,
+                email:          ActiveValue::Set(self.email),
+                username:       ActiveValue::Set(self.username),
+                password:       ActiveValue::Set(self.password),
+                created_at:     ActiveValue::NotSet,
+            }
+        } else {
+            ActiveModel {
+                id:             ActiveValue::Set(self.user_id.decode() as i32),
+                email:          ActiveValue::Set(self.email),
+                username:       ActiveValue::Set(self.username),
+                password:       ActiveValue::Set(self.password),
+                created_at:     ActiveValue::Set(self.register_time),
+            }
         }
     }
 }
 
 impl Into<Model> for UserTable {
     fn into(self) -> Model {
-        let id: i64 = self.user_id.into();
         Model {
-            id:             id as i32,
+            id:             self.user_id.decode() as i32,
             email:          self.email,
             username:       self.username,
             password:       self.password,

@@ -1,0 +1,92 @@
+use std::fmt::Display;
+
+const USER_ID_BIT_MAP :[u8; 32] = [
+    31, 30, 29, 28, 27, 26, 25, 24,
+    18, 22, 21, 20, 23, 17, 19, 16,
+    12, 14, 11, 13,  9,  8, 15, 10,
+     6,  5,  7,  4,  3,  0,  1,  2
+];
+
+const USER_ID_BIT_MAP_REV :[u8; 32] = [
+    31, 30, 29, 28, 27, 26, 25, 24,
+    19, 22, 21, 20, 17, 23, 18, 16,
+     9, 14, 12, 15, 13,  8, 11, 10,
+     5,  7,  6,  4,  3,  0,  1,  2
+];
+
+pub trait GeneralId {
+    type IdType;
+    fn from_decoded(val: Self::IdType) -> Self;
+    fn from_encoded(val: Self::IdType) -> Self;
+    fn decode(&self) -> Self::IdType;
+    fn encode(&self) -> Self::IdType;
+    
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Copy)]
+pub struct Id(u32);
+impl GeneralId for Id {
+    type IdType = u32;
+    fn from_decoded(val: u32) -> Self {
+        Self(val)
+    }
+    fn from_encoded(val: u32) -> Self {
+        let mut output = 0u32;
+        for i in 0..32 {
+            if val & (1 << USER_ID_BIT_MAP_REV[31-i]) != 0 {
+                output |= 1 << i;
+            }
+        }
+        Self(output)
+    }
+    fn decode(&self) -> u32 {
+        self.0
+    }
+    fn encode(&self) -> u32 {
+        let mut output = 0u32;
+        let input = self.0;
+        for i in 0..32 {
+            if input & (1 << USER_ID_BIT_MAP[31-i]) != 0 {
+                output |= 1 << i;
+            }
+        }
+        output
+    }
+}
+impl Display for Id {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+pub type UserId = Id;
+pub type RoomId = Id;
+pub type LoneId = Id;
+
+
+
+#[test]
+fn gen_rev() -> () {
+    let iter = USER_ID_BIT_MAP.iter().rev().enumerate();
+    let mut res = [0u8; 32];
+    for (i, v) in iter {
+        res[*v as usize] = i as u8;
+    }
+    println!("{:?}", res.into_iter().rev().collect::<Vec<u8>>())
+}
+
+
+#[test]
+fn uuid_test() -> () {
+    let uid1 = UserId::from_decoded(114514);
+    let uid2 = UserId::from_encoded(uid1.encode());
+    assert_eq!(114514, uid2.decode())
+}
+
+#[test]
+fn uuid_test2() -> () {
+    for i in 0..10000 {
+        let uid = UserId::from_decoded(i);
+        println!("ID: {} ---- UID: {}", uid.decode(), uid.encode())
+    }
+}
