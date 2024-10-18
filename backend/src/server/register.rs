@@ -56,7 +56,7 @@ async fn post_register(
     if !params.is_legal() {
         return ServerResponse::fine(ServerResponseError::InvalidRegisterParams, None);
     }
-    let user = db.select_email(params.email.as_ref().unwrap()).await;
+    let user = db.select_by_email(params.email.as_ref().unwrap()).await;
 
     if let Ok(res) = &user {
         if let Some(_) = res {

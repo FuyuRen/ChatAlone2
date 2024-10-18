@@ -12,7 +12,7 @@ pub struct Model {
     pub id: i32,
     pub lone_id: i32,
     pub name: String,
-    pub r#type: String,
+    pub room_type: String,
     pub created_at: DateTime,
 }
 
@@ -107,10 +107,10 @@ impl RoomTable {
 
     pub fn new(lone_id: LoneId, room_name: &str, room_type: RoomType) -> Self {
         Self::from_val(
-            RoomId::from_decoded(0), 
-            lone_id, 
-            room_name, 
-            room_type, 
+            RoomId::from_decoded(0),
+            lone_id,
+            room_name,
+            room_type,
             // Utc::now().naive_utc()
             NaiveDateTime::default()
         )
@@ -128,7 +128,7 @@ impl From<Model> for RoomTable {
             is_customized:  false,
             room_id:        RoomId::from_decoded(model.id as u32),
             lone_id:        RoomId::from_decoded(model.lone_id as u32),
-            room_type:      RoomType::from(model.r#type.as_ref()),
+            room_type:      RoomType::from(model.room_type.as_ref()),
             room_name:      model.name,
             created_at:     model.created_at,
         }
@@ -142,7 +142,7 @@ impl Into<ActiveModel> for RoomTable {
                 id:         ActiveValue::NotSet,
                 lone_id:    ActiveValue::Set(self.lone_id.decode() as i32),
                 name:       ActiveValue::Set(self.room_name),
-                r#type:     ActiveValue::Set(self.room_type.into()),
+                room_type:  ActiveValue::Set(self.room_type.into()),
                 created_at: ActiveValue::NotSet,
             }
         } else {
@@ -150,7 +150,7 @@ impl Into<ActiveModel> for RoomTable {
                 id:         ActiveValue::Set(self.room_id.decode() as i32),
                 lone_id:    ActiveValue::Set(self.lone_id.decode() as i32),
                 name:       ActiveValue::Set(self.room_name),
-                r#type:     ActiveValue::Set(self.room_type.into()),
+                room_type:  ActiveValue::Set(self.room_type.into()),
                 created_at: ActiveValue::Set(self.created_at),
             }
         }
@@ -163,7 +163,7 @@ impl Into<Model> for RoomTable {
             id:         self.room_id.decode() as i32,
             lone_id:    self.lone_id.decode() as i32,
             name:       self.room_name,
-            r#type:     self.room_type.into(),
+            room_type:  self.room_type.into(),
             created_at: self.created_at,
         }
     }

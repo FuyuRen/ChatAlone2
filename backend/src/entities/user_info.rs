@@ -31,11 +31,17 @@ impl Related<super::assoc_lone_user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::AssocLoneUser.def()
     }
+    fn via() -> Option<RelationDef> {
+        Some(super::assoc_lone_user::Relation::LoneInfo.def().rev())
+    }
 }
 
 impl Related<super::assoc_room_user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::AssocRoomUser.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::assoc_room_user::Relation::RoomInfo.def().rev())
     }
 }
 
@@ -68,15 +74,15 @@ impl UserTable {
             register_time:  time,
         }
     }
-    
+
     pub fn new(email: &str, username: &str, password: &str) -> Self {
         Self::from_val(email, username, password, 0, Utc::now().naive_utc())
     }
-    
+
     pub fn verify_password(&self, password: &String) -> bool {
         self.password.eq(password)
     }
-    
+
     pub fn uid(&self) -> UserId {
         self.user_id
     }

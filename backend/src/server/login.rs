@@ -34,7 +34,7 @@ async fn get_login() -> Html<String> {
 }
 
 async fn check_login(user_db: &UserDB, email: &String, password: &String) -> Option<UserId> {
-    let user = user_db.select_email(email).await;
+    let user = user_db.select_by_email(email).await;
     if let Err(_) = user {
         return None;
     }
