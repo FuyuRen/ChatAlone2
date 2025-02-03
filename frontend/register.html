@@ -9,6 +9,37 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.2.0/remixicon.css"
         integrity="sha512-OQDNdI5rpnZ0BRhhJc+btbbtnxaj+LdQFeh0V9/igiEPDiWE2fG+ZsXl0JEH+bjXKPJ3zcXqNyP4/F/NegVdZg=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .animate-fadeIn {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .animate-slideIn {
+            animation: slideIn 0.3s ease-out;
+        }
+    </style>
 </head>
 
 <body>
@@ -65,6 +96,36 @@
         </div>
     </div>
 
+    <div id="emailVerificationPopup"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden animate-fadeIn">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full animate-slideIn">
+            <h3 class="text-2xl font-bold mb-4">验证邮箱</h3>
+            <p class="mb-4">我们已经向您的邮箱发送了一个6位数的验证码。请在下面输入验证码：</p>
+            <div class="flex space-x-2 mb-4">
+                <input type="text" maxlength="1"
+                    class="w-12 h-12 text-center text-2xl border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500" />
+                <input type="text" maxlength="1"
+                    class="w-12 h-12 text-center text-2xl border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500" />
+                <input type="text" maxlength="1"
+                    class="w-12 h-12 text-center text-2xl border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500" />
+                <input type="text" maxlength="1"
+                    class="w-12 h-12 text-center text-2xl border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500" />
+                <input type="text" maxlength="1"
+                    class="w-12 h-12 text-center text-2xl border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500" />
+                <input type="text" maxlength="1"
+                    class="w-12 h-12 text-center text-2xl border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500" />
+            </div>
+            <button id="verifyButton"
+                class="w-full px-4 py-2 text-white font-medium bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring focus:ring-blue-200 transition duration-300 mb-4">
+                验证
+            </button>
+            <button id="resendButton"
+                class="w-full px-4 py-2 text-blue-600 font-medium bg-blue-100 rounded-md hover:bg-blue-200 focus:outline-none focus:ring focus:ring-blue-200 transition duration-300">
+                重新发送验证码 (<span id="countdown">60</span>s)
+            </button>
+        </div>
+    </div>
+
     <script src="popup.js"></script>
     <script>
         const form = document.getElementById('registrationForm');
@@ -74,6 +135,10 @@
         const passwordHelp = document.getElementById('passwordHelp');
         const confirmPasswordInput = document.getElementById('confirm-password');
         const confirmPasswordHelp = document.getElementById('confirmPasswordHelp');
+        const emailVerificationPopup = document.getElementById('emailVerificationPopup');
+        const verifyButton = document.getElementById('verifyButton');
+        const resendButton = document.getElementById('resendButton');
+        const countdownSpan = document.getElementById('countdown');
 
         const usernamePattern = /^[\u4e00-\u9fa5a-zA-Z0-9_-]{2,20}$/;
         const passwordPattern = /^[a-zA-Z0-9!@#$%^&*]{8,20}$/;
@@ -102,7 +167,6 @@
             }
         });
 
-
         form.addEventListener('submit', (event) => {
             event.preventDefault();
 
@@ -129,6 +193,22 @@
                 return;
             }
 
+            emailVerificationPopup.classList.remove('hidden');
+            startCountdown();
+
+            // TODO: Send verification code to user's email
+        });
+
+        verifyButton.addEventListener('click', () => {
+            const verificationCode = Array.from(document.querySelectorAll('#emailVerificationPopup input[type="text"]'))
+                .map(input => input.value)
+                .join('');
+
+            // TODO: Verify the code with the backend
+
+            emailVerificationPopup.classList.add('hidden');
+
+            // TODO: If verification is successful, proceed with registration
             fetch('http://chatalone.asia:55555/register', {
                 method: 'POST',
                 headers: {
@@ -149,7 +229,7 @@
                     } else {
                         let errorMessage = '注册失败，请稍后再试。';
 
-                        switch (data.errcode) { 
+                        switch (data.errcode) {
                             case 4:
                                 errorMessage = '注册信息有误，请检查后重试。';
                                 break;
@@ -179,6 +259,45 @@
                     });
                     popup.show();
                 });
+        });
+
+        resendButton.addEventListener('click', () => {
+            if (resendButton.disabled) return;
+
+            // TODO: Resend verification code to user's email
+
+            startCountdown();
+        });
+
+        function startCountdown() {
+            let seconds = 60;
+            resendButton.disabled = true;
+            countdownSpan.textContent = seconds;
+
+            const countdownInterval = setInterval(() => {
+                seconds--;
+                countdownSpan.textContent = seconds;
+
+                if (seconds <= 0) {
+                    clearInterval(countdownInterval);
+                    resendButton.disabled = false;
+                    countdownSpan.textContent = '60';
+                }
+            }, 1000);
+        }
+
+        document.querySelectorAll('#emailVerificationPopup input[type="text"]').forEach((input, index, inputs) => {
+            input.addEventListener('input', (e) => {
+                if (e.target.value && index < inputs.length - 1) {
+                    inputs[index + 1].focus();
+                }
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            });
         });
     </script>
 </body>
