@@ -58,8 +58,9 @@
                             <input type="text" name="username" id="username" placeholder="请输入用户名"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
                                 pattern="^[\u4e00-\u9fa5a-zA-Z0-9\s_.-@]{2,20}$" required>
-                            <small id="usernameHelp"
-                                class="text-red-500 hidden">用户名长度必须在2-20位，且只能包含中文、英文、数字和下划线、减号</small>
+                            <small id="usernameHelp" class="text-red-500 hidden">
+                                用户名长度必须在2-20位，且只能包含中文、英文、数字和下划线、减号
+                            </small>
                         </div>
                         <div>
                             <label for="email" class="block text-sm font-medium text-gray-700">邮箱</label>
@@ -72,14 +73,18 @@
                             <input type="password" name="password" id="password"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
                                 pattern="^[a-zA-Z0-9!@#$%^&*]{8,20}$" required>
-                            <small id="passwordHelp" class="text-red-500 hidden">密码长度必须在8-20位，且只能包含字母、数字和特殊符号</small>
+                            <small id="passwordHelp" class="text-red-500 hidden">
+                                密码长度必须在8-20位，且只能包含字母、数字和特殊符号
+                            </small>
                         </div>
                         <div>
                             <label for="confirm-password" class="block text-sm font-medium text-gray-700">确认密码</label>
                             <input type="password" name="confirm-password" id="confirm-password"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
                                 required>
-                            <small id="confirmPasswordHelp" class="text-red-500 hidden">两次输入的密码不一致</small>
+                            <small id="confirmPasswordHelp" class="text-red-500 hidden">
+                                两次输入的密码不一致
+                            </small>
                         </div>
                     </div>
                     <div class="mt-6">
@@ -143,6 +148,15 @@
         const usernamePattern = /^[\u4e00-\u9fa5a-zA-Z0-9_-]{2,20}$/;
         const passwordPattern = /^[a-zA-Z0-9!@#$%^&*]{8,20}$/;
 
+        let countdownInterval;
+
+        window.addEventListener('load', () => {
+            const storedStartTime = sessionStorage.getItem('countdownStartTime');
+            if (storedStartTime) {
+                startCountdown(true);
+            }
+        });
+
         usernameInput.addEventListener('input', () => {
             if (!usernamePattern.test(usernameInput.value)) {
                 usernameHelp.classList.remove('hidden');
@@ -185,9 +199,7 @@
                 const popup = createUniversalPopup({
                     title: '错误',
                     content: `<p>${error.message}</p>`,
-                    onClose: () => {
-                        console.log('弹窗已关闭');
-                    }
+                    onClose: () => { }
                 });
                 popup.show();
                 return;
@@ -196,19 +208,43 @@
             emailVerificationPopup.classList.remove('hidden');
             startCountdown();
 
-            // TODO: Send verification code to user's email
+            // TODO: 发送验证码到用户邮箱，并在后端设置验证码的有效时限
         });
+
+        function startCountdown(isRefresh = false) {
+            let startTime = sessionStorage.getItem('countdownStartTime');
+            if (!isRefresh) {
+                startTime = Date.now().toString();
+                sessionStorage.setItem('countdownStartTime', startTime);
+            }
+            resendButton.disabled = true;
+
+            countdownInterval = setInterval(() => {
+                const elapsed = Date.now() - parseInt(sessionStorage.getItem('countdownStartTime'), 10);
+                const remaining = 60 - Math.floor(elapsed / 1000);
+                if (remaining <= 0) {
+                    clearInterval(countdownInterval);
+                    sessionStorage.removeItem('countdownStartTime');
+                    resendButton.disabled = false;
+                    countdownSpan.textContent = '60';
+                } else {
+                    countdownSpan.textContent = remaining;
+                }
+            }, 1000);
+        }
 
         verifyButton.addEventListener('click', () => {
             const verificationCode = Array.from(document.querySelectorAll('#emailVerificationPopup input[type="text"]'))
                 .map(input => input.value)
                 .join('');
 
-            // TODO: Verify the code with the backend
+            // TODO: 将验证码与后端验证，以判断是否仍在有效期
 
             emailVerificationPopup.classList.add('hidden');
+            clearInterval(countdownInterval);
+            sessionStorage.removeItem('countdownStartTime');
 
-            // TODO: If verification is successful, proceed with registration
+            // TODO: 如果验证成功，则继续注册流程
             fetch('http://chatalone.asia:55555/register', {
                 method: 'POST',
                 headers: {
@@ -222,13 +258,10 @@
             })
                 .then(response => response.json())
                 .then(data => {
-                    console.log(data);
                     if (data.errcode === 0) {
-                        console.log('注册成功');
                         window.location.href = '/login';
                     } else {
                         let errorMessage = '注册失败，请稍后再试。';
-
                         switch (data.errcode) {
                             case 4:
                                 errorMessage = '注册信息有误，请检查后重试。';
@@ -237,25 +270,19 @@
                                 errorMessage = '该邮箱地址已被注册。';
                                 break;
                         }
-
                         const popup = createUniversalPopup({
                             title: '错误',
                             content: `<p>${errorMessage}</p>`,
-                            onClose: () => {
-                                console.log('弹窗已关闭');
-                            }
+                            onClose: () => { }
                         });
                         popup.show();
                     }
                 })
-                .catch(error => {
-                    console.error('注册过程中发生错误：', error);
+                .catch(() => {
                     const popup = createUniversalPopup({
                         title: '错误',
                         content: '<p>注册过程中发生错误，请稍后再试。</p>',
-                        onClose: () => {
-                            console.log('弹窗已关闭');
-                        }
+                        onClose: () => { }
                     });
                     popup.show();
                 });
@@ -263,28 +290,9 @@
 
         resendButton.addEventListener('click', () => {
             if (resendButton.disabled) return;
-
-            // TODO: Resend verification code to user's email
-
+            // TODO: 重新发送验证码到用户邮箱，后端更新或沿用原有验证码的有效期
             startCountdown();
         });
-
-        function startCountdown() {
-            let seconds = 60;
-            resendButton.disabled = true;
-            countdownSpan.textContent = seconds;
-
-            const countdownInterval = setInterval(() => {
-                seconds--;
-                countdownSpan.textContent = seconds;
-
-                if (seconds <= 0) {
-                    clearInterval(countdownInterval);
-                    resendButton.disabled = false;
-                    countdownSpan.textContent = '60';
-                }
-            }, 1000);
-        }
 
         document.querySelectorAll('#emailVerificationPopup input[type="text"]').forEach((input, index, inputs) => {
             input.addEventListener('input', (e) => {
@@ -292,7 +300,6 @@
                     inputs[index + 1].focus();
                 }
             });
-
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Backspace' && !e.target.value && index > 0) {
                     inputs[index - 1].focus();
