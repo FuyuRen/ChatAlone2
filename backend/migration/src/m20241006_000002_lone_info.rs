@@ -13,7 +13,7 @@ impl MigrationTrait for Migration {
                 .if_not_exists()
                 .col(pk_auto(LoneInfo::Id))
                 .col(string_len(LoneInfo::Name, 32))
-                .col(integer(LoneInfo::OwnerId))
+                .col(integer(LoneInfo::OwnerId).unique_key())
                 
                 .col(timestamp(LoneInfo::CreatedAt).default(Expr::current_timestamp()))
                 .to_owned(),

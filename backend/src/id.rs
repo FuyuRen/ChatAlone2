@@ -59,11 +59,16 @@ impl Display for Id {
         write!(f, "{}", self.0)
     }
 }
+impl Into<i32> for Id {
+    fn into(self) -> i32 {
+        self.decode() as i32
+    }
+}
 
 pub type UserId = Id;
 pub type RoomId = Id;
 pub type LoneId = Id;
-
+pub type RoleId = Id;
 
 
 #[test]

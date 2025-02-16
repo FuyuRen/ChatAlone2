@@ -9,6 +9,37 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.2.0/remixicon.css"
         integrity="sha512-OQDNdI5rpnZ0BRhhJc+btbbtnxaj+LdQFeh0V9/igiEPDiWE2fG+ZsXl0JEH+bjXKPJ3zcXqNyP4/F/NegVdZg=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .animate-fadeIn {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .animate-slideIn {
+            animation: slideIn 0.3s ease-out;
+        }
+    </style>
 </head>
 
 <body>
@@ -27,8 +58,9 @@
                             <input type="text" name="username" id="username" placeholder="请输入用户名"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
                                 pattern="^[\u4e00-\u9fa5a-zA-Z0-9\s_.-@]{2,20}$" required>
-                            <small id="usernameHelp"
-                                class="text-red-500 hidden">用户名长度必须在2-20位，且只能包含中文、英文、数字和下划线、减号</small>
+                            <small id="usernameHelp" class="text-red-500 hidden">
+                                用户名长度必须在2-20位，且只能包含中文、英文、数字和下划线、减号
+                            </small>
                         </div>
                         <div>
                             <label for="email" class="block text-sm font-medium text-gray-700">邮箱</label>
@@ -41,14 +73,18 @@
                             <input type="password" name="password" id="password"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
                                 pattern="^[a-zA-Z0-9!@#$%^&*]{8,20}$" required>
-                            <small id="passwordHelp" class="text-red-500 hidden">密码长度必须在8-20位，且只能包含字母、数字和特殊符号</small>
+                            <small id="passwordHelp" class="text-red-500 hidden">
+                                密码长度必须在8-20位，且只能包含字母、数字和特殊符号
+                            </small>
                         </div>
                         <div>
                             <label for="confirm-password" class="block text-sm font-medium text-gray-700">确认密码</label>
                             <input type="password" name="confirm-password" id="confirm-password"
                                 class="mt-1 p-2 w-full border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500"
                                 required>
-                            <small id="confirmPasswordHelp" class="text-red-500 hidden">两次输入的密码不一致</small>
+                            <small id="confirmPasswordHelp" class="text-red-500 hidden">
+                                两次输入的密码不一致
+                            </small>
                         </div>
                     </div>
                     <div class="mt-6">
@@ -65,6 +101,36 @@
         </div>
     </div>
 
+    <div id="emailVerificationPopup"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden animate-fadeIn">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full animate-slideIn">
+            <h3 class="text-2xl font-bold mb-4">验证邮箱</h3>
+            <p class="mb-4">我们已经向您的邮箱发送了一个6位数的验证码。请在下面输入验证码：</p>
+            <div class="flex space-x-2 mb-4">
+                <input type="text" maxlength="1"
+                    class="w-12 h-12 text-center text-2xl border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500" />
+                <input type="text" maxlength="1"
+                    class="w-12 h-12 text-center text-2xl border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500" />
+                <input type="text" maxlength="1"
+                    class="w-12 h-12 text-center text-2xl border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500" />
+                <input type="text" maxlength="1"
+                    class="w-12 h-12 text-center text-2xl border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500" />
+                <input type="text" maxlength="1"
+                    class="w-12 h-12 text-center text-2xl border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500" />
+                <input type="text" maxlength="1"
+                    class="w-12 h-12 text-center text-2xl border rounded-md focus:ring focus:ring-blue-200 focus:border-blue-500" />
+            </div>
+            <button id="verifyButton"
+                class="w-full px-4 py-2 text-white font-medium bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring focus:ring-blue-200 transition duration-300 mb-4">
+                验证
+            </button>
+            <button id="resendButton"
+                class="w-full px-4 py-2 text-blue-600 font-medium bg-blue-100 rounded-md hover:bg-blue-200 focus:outline-none focus:ring focus:ring-blue-200 transition duration-300">
+                重新发送验证码 (<span id="countdown">60</span>s)
+            </button>
+        </div>
+    </div>
+
     <script src="popup.js"></script>
     <script>
         const form = document.getElementById('registrationForm');
@@ -74,9 +140,22 @@
         const passwordHelp = document.getElementById('passwordHelp');
         const confirmPasswordInput = document.getElementById('confirm-password');
         const confirmPasswordHelp = document.getElementById('confirmPasswordHelp');
+        const emailVerificationPopup = document.getElementById('emailVerificationPopup');
+        const verifyButton = document.getElementById('verifyButton');
+        const resendButton = document.getElementById('resendButton');
+        const countdownSpan = document.getElementById('countdown');
 
         const usernamePattern = /^[\u4e00-\u9fa5a-zA-Z0-9_-]{2,20}$/;
         const passwordPattern = /^[a-zA-Z0-9!@#$%^&*]{8,20}$/;
+
+        let countdownInterval;
+
+        window.addEventListener('load', () => {
+            const storedStartTime = sessionStorage.getItem('countdownStartTime');
+            if (storedStartTime) {
+                startCountdown(true);
+            }
+        });
 
         usernameInput.addEventListener('input', () => {
             if (!usernamePattern.test(usernameInput.value)) {
@@ -102,7 +181,6 @@
             }
         });
 
-
         form.addEventListener('submit', (event) => {
             event.preventDefault();
 
@@ -121,15 +199,53 @@
                 const popup = createUniversalPopup({
                     title: '错误',
                     content: `<p>${error.message}</p>`,
-                    onClose: () => {
-                        console.log('弹窗已关闭');
-                    }
+                    onClose: () => { }
                 });
                 popup.show();
                 return;
             }
 
-            fetch('/register', {
+            emailVerificationPopup.classList.remove('hidden');
+            startCountdown();
+
+            // TODO: 发送验证码到用户邮箱，并在后端设置验证码的有效时限
+        });
+
+        function startCountdown(isRefresh = false) {
+            let startTime = sessionStorage.getItem('countdownStartTime');
+            if (!isRefresh) {
+                startTime = Date.now().toString();
+                sessionStorage.setItem('countdownStartTime', startTime);
+            }
+            resendButton.disabled = true;
+
+            countdownInterval = setInterval(() => {
+                const elapsed = Date.now() - parseInt(sessionStorage.getItem('countdownStartTime'), 10);
+                const remaining = 60 - Math.floor(elapsed / 1000);
+                if (remaining <= 0) {
+                    clearInterval(countdownInterval);
+                    sessionStorage.removeItem('countdownStartTime');
+                    resendButton.disabled = false;
+                    countdownSpan.textContent = '60';
+                } else {
+                    countdownSpan.textContent = remaining;
+                }
+            }, 1000);
+        }
+
+        verifyButton.addEventListener('click', () => {
+            const verificationCode = Array.from(document.querySelectorAll('#emailVerificationPopup input[type="text"]'))
+                .map(input => input.value)
+                .join('');
+
+            // TODO: 将验证码与后端验证，以判断是否仍在有效期
+
+            emailVerificationPopup.classList.add('hidden');
+            clearInterval(countdownInterval);
+            sessionStorage.removeItem('countdownStartTime');
+
+            // TODO: 如果验证成功，则继续注册流程
+            fetch('http://chatalone.asia:55555/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -142,14 +258,11 @@
             })
                 .then(response => response.json())
                 .then(data => {
-                    console.log(data);
                     if (data.errcode === 0) {
-                        console.log('注册成功');
                         window.location.href = '/login';
                     } else {
                         let errorMessage = '注册失败，请稍后再试。';
-
-                        switch (data.errcode) { 
+                        switch (data.errcode) {
                             case 4:
                                 errorMessage = '注册信息有误，请检查后重试。';
                                 break;
@@ -157,28 +270,41 @@
                                 errorMessage = '该邮箱地址已被注册。';
                                 break;
                         }
-
                         const popup = createUniversalPopup({
                             title: '错误',
                             content: `<p>${errorMessage}</p>`,
-                            onClose: () => {
-                                console.log('弹窗已关闭');
-                            }
+                            onClose: () => { }
                         });
                         popup.show();
                     }
                 })
-                .catch(error => {
-                    console.error('注册过程中发生错误：', error);
+                .catch(() => {
                     const popup = createUniversalPopup({
                         title: '错误',
                         content: '<p>注册过程中发生错误，请稍后再试。</p>',
-                        onClose: () => {
-                            console.log('弹窗已关闭');
-                        }
+                        onClose: () => { }
                     });
                     popup.show();
                 });
+        });
+
+        resendButton.addEventListener('click', () => {
+            if (resendButton.disabled) return;
+            // TODO: 重新发送验证码到用户邮箱，后端更新或沿用原有验证码的有效期
+            startCountdown();
+        });
+
+        document.querySelectorAll('#emailVerificationPopup input[type="text"]').forEach((input, index, inputs) => {
+            input.addEventListener('input', (e) => {
+                if (e.target.value && index < inputs.length - 1) {
+                    inputs[index + 1].focus();
+                }
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            });
         });
     </script>
 </body>
