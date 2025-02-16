@@ -6,37 +6,24 @@ use lettre::{
 use serde::Deserialize;
 use tokio;
 
-#[derive(Debug, Deserialize)]
-pub struct Email {
-    address:        String,
-    password:       String,
-    smtp_address:   String,
+#[derive(Debug, Clone, Deserialize)]
+pub struct Email<'a> {
+    address:        &'a str,
+    password:       &'a str,
+    smtp_address:   &'a str,
 
     #[serde(skip)]
-    template:       String,
+    template:       &'a str,
 }
 
-impl Email {
-    pub fn from(address: String, password: String, smtp_address: String) -> Self {
-        let template = include_str!("../../frontend/email.html").to_string();
-        Email {
-            address,
-            password,
-            smtp_address,
-            template,
-        }
+
+impl<'a> Email<'a> {
+
+    pub fn new(address: &'a str, password: &'a str, smtp_address: &'a str, template: &'a str) -> Self {
+        Self { address, password, smtp_address, template, }
     }
 
-    pub fn from_str(address: &str, password: &str, smtp_address: &str) -> Self {
-        Self::from(
-            address.to_string(),
-            password.to_string(),
-            smtp_address.to_string(),
-        )
-    }
-
-    pub fn from_cfg(config: &String) -> Result<Self> {
-        let template = include_str!("../../frontend/email.html").to_string();
+    pub fn from(config: &'a str, template: &'a str) -> Result<Self> {
         let mut ret = serde_json::from_str::<Email>(config)?;
         ret.template = template;
         Ok(ret)
@@ -59,9 +46,9 @@ impl Email {
         let creds = Credentials::new(self.address.to_string(), self.password.to_string());
 
         let mailer = if self.address.ends_with("@icloud.com") {
-            AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(self.smtp_address.as_str())?
+            AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(self.smtp_address)?
         } else {
-            AsyncSmtpTransport::<Tokio1Executor>::relay(self.smtp_address.as_str())?
+            AsyncSmtpTransport::<Tokio1Executor>::relay(self.smtp_address)?
         };
         let mailer = mailer.credentials(creds).build();
 
@@ -84,11 +71,13 @@ impl Email {
     }
 }
 
+
 #[tokio::test]
 async fn test1() {
     let cfg = include_str!("../cfg/email.json");
-    let email = Email::from_cfg(&cfg.to_string()).unwrap();
-    email
+    let tmp = include_str!("../../frontend/email.html");
+    let emailer = Email::from(cfg, tmp).unwrap();
+    emailer
         .send_verify_code("somebody@gmail.com", 114514)
         .await
         .unwrap();

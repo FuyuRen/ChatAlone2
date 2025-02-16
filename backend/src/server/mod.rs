@@ -1,11 +1,8 @@
-mod login;
-mod public;
-mod register;
-mod tools;
-mod ws;
+mod api;
+mod websocket;
 
 use std::fmt::Display;
-
+use std::sync::Arc;
 use anyhow::{anyhow, Error, Result};
 use tokio::fs::File;
 use tokio::io;
@@ -28,11 +25,17 @@ use axum_extra::{
     extract::cookie,
     headers::{Cookie, HeaderMap},
 };
+use dashmap::DashMap;
 use sea_orm::DatabaseConnection;
+use tokio::sync::broadcast::Sender;
+use api::{login, public, register, tools};
+use websocket::{ws, WsClient};
 use crate::email::Email;
 use crate::jwt::{Jwt, JwtError};
-use crate::sql::{DataBase, UserDB};
-use crate::entities::user_info::UserTable;
+use crate::sql::{
+    user::DB,
+    DataBase,
+};
 
 const FRONTEND_DIR: &'static str = "../../frontend";
 const JWT_EXPIRE_DURATION: i64 = 3600;
@@ -191,11 +194,15 @@ pub async fn fs_read(path: &str) -> Result<String> {
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub db_conn: DatabaseConnection,
+    pub users: Arc<DashMap<u32, WsClient>>
 }
 
 impl AppState {
     pub fn new(db_conn: DatabaseConnection) -> Self {
-        Self { db_conn }
+        Self { 
+            db_conn,
+            users: Arc::new(DashMap::new()),
+        }
     }
 }
 
@@ -213,15 +220,25 @@ pub fn route(db_conn: DatabaseConnection) -> Router {
     let tools = tools::route(state.clone());
 
     if cfg!(debug_assertions) {
-        Router::new()
-            .nest("/", login)
-            .nest("/", register)
-            .nest("/", public)
-            .nest("/", websocket)
+        // Router::new()
+        //     .nest("/", login)
+        //     .nest("/", register)
+        //     .nest("/", public)
+        //     .nest("/", websocket)
+        //     .nest("/tools", tools)
+        //     .route("/chat", get(chat))
+        //     .fallback(handler_404)
+        //     .with_state(state)
+        
+        public
+            .merge(login)
+            .merge(register)
+            .merge(websocket)
             .nest("/tools", tools)
             .route("/chat", get(chat))
             .fallback(handler_404)
             .with_state(state)
+        
     } else {
         Router::new()
             .nest("/", login)

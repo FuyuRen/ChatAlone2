@@ -107,7 +107,7 @@ impl RoomTable {
 
     pub fn new(lone_id: LoneId, room_name: &str, room_type: RoomType) -> Self {
         Self::from_val(
-            RoomId::from_decoded(0), 
+            RoomId::from_decoded(0u32), 
             lone_id, 
             room_name, 
             room_type, 

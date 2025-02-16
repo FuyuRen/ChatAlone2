@@ -13,7 +13,10 @@ use crate::server::{
 };
 
 use crate::jwt::Jwt;
-use crate::sql::{DataBase, UserDB};
+use crate::sql::{
+    DataBase,
+    user,
+};
 use crate::id::{GeneralId, UserId};
 
 #[derive(Debug, Deserialize)]
@@ -31,17 +34,6 @@ pub(crate) fn route(app_state: AppState) -> Router<AppState> {
 
 async fn get_login() -> Html<String> {
     Html(fs_read("../frontend/login.html").await.unwrap())
-}
-
-async fn check_login(user_db: &UserDB, email: &String, password: &String) -> Option<UserId> {
-    let user = user_db.select_email(email).await;
-    if let Err(_) = user {
-        return None;
-    }
-    match user.unwrap() {
-        Some(user) => user.verify_password(password).then(||{ user.uid() }),
-        _ => None,
-    }
 }
 
 async fn post_login(
@@ -62,10 +54,20 @@ async fn post_login(
         return ServerResponse::fine(ServerResponseError::IllegalLoginParams, None);
     }
 
-    let db = UserDB::from_state(&state);
-    if let Some(uid) = check_login(&db, &email, &password).await {
+    let db = user::DB::from_state(&state);
+    let user_model = match db.select_email(&email).await {
+        Ok(Some(user_model)) => user_model,
+        Ok(None) => {
+            return ServerResponse::fine(ServerResponseError::InvalidLoginParams, None);
+        },
+        Err(_) => {
+            return ServerResponse::inner_err(ServerResponseError::InternalDatabaseError);
+        },
+    };
+    if user_model.password.eq(&password) {
+        let user_id = UserId::from_decoded(user_model.id as u32);
         println!("post(login) user found");
-        let jwt = Jwt::generate(uid.encode() as usize, JWT_EXPIRE_DURATION);
+        let jwt = Jwt::generate(user_id.encode() as usize, JWT_EXPIRE_DURATION);
         if let Ok(jwt) = jwt {
             let jwt_cookie = cookie::Cookie::build(("token", jwt))
                 .path("/")

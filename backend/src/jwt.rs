@@ -1,5 +1,6 @@
 use std::cell::{RefCell, RefMut};
 use std::fmt::{Display, Formatter};
+use std::future::Future;
 use std::ops::Deref;
 
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
@@ -13,7 +14,7 @@ use anyhow::{anyhow, Result};
 
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::{async_trait, extract::FromRequestParts, http::request::Parts, Json, RequestPartsExt};
+use axum::{extract::FromRequestParts, http::request::Parts, Json, RequestPartsExt};
 use axum_extra::headers::Cookie;
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
@@ -57,7 +58,7 @@ impl JwtPayload {
         let time = Utc::now();
         JwtPayload {
             user_id,
-            exp_time: time.timestamp_millis() + expire_time_s,
+            exp_time: time.timestamp_millis() + expire_time_s * 1000,
         }
     }
 }
@@ -90,7 +91,15 @@ impl Jwt {
             hmac_handler: handler,
         })
     }
-
+    
+    pub fn user_id(&self) -> usize {
+        self.payload.user_id
+    }
+    
+    pub fn expire_time(&self) -> i64 {
+        self.payload.exp_time
+    }
+    
     fn encode(&self) -> Result<String> {
         Ok(format!(
             "{}.{}.{}",
@@ -114,7 +123,7 @@ impl Jwt {
 
         let time = Utc::now();
         if time.timestamp_millis() > self.payload.exp_time {
-            return Err(JwtError::Expired);
+            return Err(JwtError::Expired(self.payload.exp_time));
         }
 
         Ok(())
@@ -243,10 +252,11 @@ impl TryInto<String> for Jwt {
     }
 }
 
+#[derive(Debug)]
 pub enum JwtError {
     MissingToken,
     InvalidToken,
-    Expired,
+    Expired(i64),
     InternalError(String),
 }
 
@@ -256,28 +266,26 @@ impl Display for JwtError {
     }
 }
 
-#[async_trait]
-impl<S> FromRequestParts<S> for Jwt
-where
-    S: Send + Sync,
-{
+// #[async_trait::async_trait]
+impl<S: Send + Sync> FromRequestParts<S> for Jwt {
     type Rejection = JwtError;
-
-    async fn from_request_parts(
+    
+    fn from_request_parts(
         parts: &mut Parts,
         _state: &S,
-    ) -> std::result::Result<Self, Self::Rejection> {
-        let TypedHeader(cookie) = parts
-            .extract::<TypedHeader<Cookie>>()
-            .await
-            .map_err(|_| JwtError::InvalidToken)?;
-        let jwt_str = cookie.get("token").ok_or(JwtError::InvalidToken)?;
-
-        // let TypedHeader(Authorization(bearer)) = parts
-        //     .extract::<TypedHeader<Authorization<Bearer>>>().await
-        //     .map_err(|_| JwtError::InvalidToken)?;
-        // let jwt_str = bearer.token();
-        Jwt::parse_and_verify(jwt_str)
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+        Box::pin(async move {
+            let TypedHeader(cookie) = parts
+                .extract::<TypedHeader<Cookie>>()
+                .await
+                .map_err(|_| JwtError::InvalidToken)?;
+            let jwt_str = cookie.get("token").ok_or(JwtError::InvalidToken)?;
+            // let TypedHeader(Authorization(bearer)) = parts
+            //     .extract::<TypedHeader<Authorization<Bearer>>>().await
+            //     .map_err(|_| JwtError::InvalidToken)?;
+            // let jwt_str = bearer.token();
+            Jwt::parse_and_verify(jwt_str)
+        })
     }
 }
 
@@ -288,7 +296,7 @@ impl IntoResponse for JwtError {
                 => (StatusCode::UNAUTHORIZED, "Missing token"),
             JwtError::InvalidToken
                 => (StatusCode::UNAUTHORIZED, "Invalid token"),
-            JwtError::Expired
+            JwtError::Expired(_)
                 => (StatusCode::UNAUTHORIZED, "Token expired"),
             JwtError::InternalError(_)
                 =>(StatusCode::INTERNAL_SERVER_ERROR, "Token Validation Error")

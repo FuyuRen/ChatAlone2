@@ -16,8 +16,8 @@ const USER_ID_BIT_MAP_REV :[u8; 32] = [
 
 pub trait GeneralId {
     type IdType;
-    fn from_decoded(val: Self::IdType) -> Self;
-    fn from_encoded(val: Self::IdType) -> Self;
+    fn from_decoded<T: Into<Self::IdType>>(val: T) -> Self;
+    fn from_encoded<T: Into<Self::IdType>>(val: T) -> Self;
     fn decode(&self) -> Self::IdType;
     fn encode(&self) -> Self::IdType;
     
@@ -27,10 +27,11 @@ pub trait GeneralId {
 pub struct Id(u32);
 impl GeneralId for Id {
     type IdType = u32;
-    fn from_decoded(val: u32) -> Self {
-        Self(val)
+    fn from_decoded<T: Into<u32>>(val: T) -> Self {
+        Self(val.into())
     }
-    fn from_encoded(val: u32) -> Self {
+    fn from_encoded<T: Into<u32>>(val: T) -> Self {
+        let val: u32 = val.into();
         let mut output = 0u32;
         for i in 0..32 {
             if val & (1 << USER_ID_BIT_MAP_REV[31-i]) != 0 {
@@ -78,14 +79,14 @@ fn gen_rev() -> () {
 
 #[test]
 fn uuid_test() -> () {
-    let uid1 = UserId::from_decoded(114514);
+    let uid1 = UserId::from_decoded(114514u32);
     let uid2 = UserId::from_encoded(uid1.encode());
     assert_eq!(114514, uid2.decode())
 }
 
 #[test]
 fn uuid_test2() -> () {
-    for i in 0..10000 {
+    for i in 0..10000u32 {
         let uid = UserId::from_decoded(i);
         println!("ID: {} ---- UID: {}", uid.decode(), uid.encode())
     }

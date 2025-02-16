@@ -43,6 +43,6 @@ impl ChatRoom {
 
 impl Default for ChatRoom {
     fn default() -> Self {
-        Self::start(RoomId::from_decoded(1919810), "test".to_string())
+        Self::start(RoomId::from_decoded(1919810u32), "test".to_string())
     }
 }

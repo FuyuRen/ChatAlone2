@@ -1,3 +1,4 @@
+use std::sync::OnceLock;
 use anyhow::anyhow;
 use axum::{
     extract::State,
@@ -5,10 +6,15 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use dashmap::DashMap;
+use sea_orm::ActiveValue;
 use serde::Deserialize;
 use crate::server::{fs_read, AppState, ServerResponse, ServerResponseError};
-use crate::sql::{BasicCRUD, DataBase, UserDB, UserTable};
-
+use crate::sql::{
+    BasicCRUD,
+    DataBase,
+    user,
+};
 #[derive(Debug, Deserialize)]
 struct RegisterParams {
     email:          Option<String>,
@@ -22,20 +28,25 @@ impl RegisterParams {
     }
 }
 
-impl TryInto<UserTable> for RegisterParams {
+impl TryInto<user::ActiveModel> for RegisterParams {
     type Error = anyhow::Error;
-    fn try_into(self) -> Result<UserTable, Self::Error> {
+    fn try_into(self) -> Result<user::ActiveModel, Self::Error> {
         if self.is_legal() {
-            Ok(UserTable::new(
-                &self.email.unwrap(),
-                &self.username.unwrap(),
-                &self.password.unwrap(),
-            ))
+            Ok(user::ActiveModel {
+                email:      ActiveValue::Set(self.email.unwrap()),
+                username:   ActiveValue::Set(self.username.unwrap()),
+                password:   ActiveValue::Set(self.password.unwrap()),
+                ..Default::default()
+            })
         } else {
             Err(anyhow!("Invalid register params"))
         }
     }
 }
+
+// struct RegisterSession(DashMap<u32, RegisterParams>);
+// 
+// static REGISTER_SESSION: OnceLock<RegisterSession> = RegisterSession(DashMap::new());
 
 pub(crate) fn route(app_state: AppState) -> Router<AppState> {
     Router::new()
@@ -52,11 +63,12 @@ async fn post_register(
     State(state): State<AppState>,
     Json(params): Json<RegisterParams>,
 ) -> impl IntoResponse {
-    let db = UserDB::from_state(&state);
+    println!("post(register) called with params: {:?}", params);
+    let user_db = user::DB::from_state(&state);
     if !params.is_legal() {
         return ServerResponse::fine(ServerResponseError::InvalidRegisterParams, None);
     }
-    let user = db.select_email(params.email.as_ref().unwrap()).await;
+    let user = user_db.select_email(params.email.as_ref().unwrap()).await;
 
     if let Ok(res) = &user {
         if let Some(_) = res {
@@ -67,8 +79,8 @@ async fn post_register(
         return ServerResponse::inner_err(ServerResponseError::InternalDatabaseError);
     }
 
-    let new_user: UserTable = params.try_into().unwrap();
-    if let Err(_) = db.insert(new_user).await {
+    let new_user: user::ActiveModel = params.try_into().unwrap();
+    if let Err(_) = user_db.insert(new_user).await {
         ServerResponse::inner_err(ServerResponseError::InternalDatabaseError)
     } else {
         ServerResponse::ok(None)

@@ -23,10 +23,19 @@ async fn test_email() -> Result<()> {
     let time = Utc::now();
     println!("{}", time);
 
-    let email_cfg = fs_read("./cfg/email.json").await?;
-    let email = Email::from_cfg(&email_cfg)?;
+    let (config, template) = tokio::join!(
+        fs_read("./cfg/email.json"),
+        fs_read("../frontend/email.html")
+    );
+    
+    let config = config.expect("Email Config Not Found");
+    let template = template.expect("Email Template Not Found");
+    
+    let email = Email::from(&config, &template)?;
 
-    // email.send("somebody@gmail.com", "Hello".to_string(), "I am ChatAlone.".to_string()).await?;
+    email
+        .send_verify_code("liuenyan666@bupt.edu.cn", 114514)
+        .await?;
     Ok(())
 }
 
